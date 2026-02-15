@@ -247,6 +247,37 @@
       accent-color: var(--brand);
     }
 
+    .time-wrap {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      color: #2b4550;
+      font-weight: 700;
+      padding: 8px 10px;
+      border: 1px dashed #b7cbc4;
+      border-radius: 12px;
+      background: #f8fcfa;
+    }
+
+    .time-wrap input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--brand2);
+    }
+
+    .time-wrap input[type="number"] {
+      width: 88px;
+      padding: 6px 8px;
+      border-radius: 9px;
+      border: 1px solid #c8d5d0;
+      font-size: 0.9rem;
+      font-weight: 800;
+      text-align: right;
+    }
+
     .workspace {
       display: grid;
       gap: 12px;
@@ -283,6 +314,50 @@
       color: #102a3d;
       line-height: 1.06;
       letter-spacing: 0.01em;
+    }
+
+    .timer-box {
+      display: none;
+      margin-bottom: 10px;
+      border-radius: 11px;
+      border: 1px solid #cfd8e6;
+      background: #f6f9ff;
+      padding: 8px 10px;
+    }
+
+    .timer-box.show {
+      display: block;
+    }
+
+    .timer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #1f3550;
+      margin-bottom: 6px;
+    }
+
+    .timer-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: #deebff;
+      overflow: hidden;
+    }
+
+    .timer-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #154a87, #0d6447);
+      transition: width 0.35s linear, background 0.2s ease;
+    }
+
+    .timer-box.warn .timer-fill {
+      background: linear-gradient(90deg, #c2410c, #ef4444);
     }
 
     .answer-row {
@@ -492,6 +567,69 @@
       margin-top: 6px;
     }
 
+    .protocol-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .protocol-summary {
+      margin: 0 0 8px;
+      color: #334155;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .protocol-table-wrap {
+      border: 1px solid #dfe6ec;
+      border-radius: 10px;
+      overflow: auto;
+      max-height: 320px;
+      background: #fff;
+    }
+
+    .protocol-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 860px;
+      font-size: 0.85rem;
+    }
+
+    .protocol-table th,
+    .protocol-table td {
+      border-bottom: 1px solid #edf2f6;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .protocol-table th {
+      position: sticky;
+      top: 0;
+      background: #f8fbff;
+      color: #334155;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      z-index: 1;
+    }
+
+    .result-ok {
+      color: #166534;
+      font-weight: 800;
+    }
+
+    .result-bad {
+      color: #b91c1c;
+      font-weight: 800;
+    }
+
+    .result-time {
+      color: #9a3412;
+      font-weight: 800;
+    }
+
     .correct-input {
       border-color: #4caf72 !important;
       background: #f2fbf5 !important;
@@ -575,6 +713,10 @@
         max-width: 88vw;
       }
 
+      .time-wrap input[type="number"] {
+        width: 78px;
+      }
+
       .content {
         padding: 10px;
       }
@@ -629,6 +771,12 @@
             <input type="checkbox" id="autoNext" checked />
             Nach richtiger Antwort direkt weiter
           </label>
+          <label class="time-wrap">
+            <input type="checkbox" id="timedMode" />
+            Zeitdruck aktiv
+            <input id="timeLimitInput" type="number" min="5" max="300" step="5" value="30" />
+            Sekunden pro Aufgabe
+          </label>
         </div>
       </section>
 
@@ -637,6 +785,16 @@
           <div class="task-meta">
             <span class="chip" id="chipGrade">2. Klasse</span>
             <span class="chip" id="chipMode">Mix</span>
+          </div>
+
+          <div class="timer-box" id="timerBox" aria-live="polite">
+            <div class="timer-head">
+              <span id="timerState">Zeitdruck: aktiv</span>
+              <span id="timerText">30s</span>
+            </div>
+            <div class="timer-track">
+              <div class="timer-fill" id="timerFill"></div>
+            </div>
           </div>
 
           <p class="equation" id="equation">12 + 5 = ?</p>
@@ -699,6 +857,36 @@
           <li><strong>Tipp:</strong> Mit dem Button <em>Neue Aufgabe</em> kannst du endlos trainieren.</li>
         </ul>
       </section>
+
+      <section class="card protocol">
+        <h2>Übungsprotokoll</h2>
+        <div class="protocol-actions">
+          <button class="btn btn-ghost" id="toggleProtocolBtn" type="button">Protokoll anzeigen</button>
+          <button class="btn btn-ghost" id="downloadCsvBtn" type="button">CSV herunterladen</button>
+          <button class="btn btn-ghost" id="downloadJsonBtn" type="button">JSON herunterladen</button>
+          <button class="btn btn-warn" id="clearLogBtn" type="button">Protokoll löschen</button>
+        </div>
+        <p class="protocol-summary" id="protocolSummary">Noch keine Einträge.</p>
+        <div class="protocol-table-wrap" id="protocolTableWrap" hidden>
+          <table class="protocol-table">
+            <thead>
+              <tr>
+                <th>Zeit</th>
+                <th>Klasse</th>
+                <th>Bereich</th>
+                <th>Aufgabe</th>
+                <th>Antwort</th>
+                <th>Korrekt</th>
+                <th>Ergebnis</th>
+                <th>Zeit (s)</th>
+                <th>Hinweise</th>
+                <th>Punkte</th>
+              </tr>
+            </thead>
+            <tbody id="protocolBody"></tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -738,7 +926,14 @@
         correct: 0,
         streak: 0,
         points: 0,
-        successTimer: null
+        successTimer: null,
+        timedMode: false,
+        timeLimitSec: 30,
+        timeLeftSec: 30,
+        taskStartedAt: Date.now(),
+        taskTimer: null,
+        logs: [],
+        protocolVisible: false
       };
 
       const gradeSelect = document.getElementById("gradeSelect");
@@ -755,21 +950,182 @@
       const hintBtn = document.getElementById("hintBtn");
       const resetBtn = document.getElementById("resetBtn");
       const autoNext = document.getElementById("autoNext");
+      const timedMode = document.getElementById("timedMode");
+      const timeLimitInput = document.getElementById("timeLimitInput");
       const feedback = document.getElementById("feedback");
       const successFlash = document.getElementById("successFlash");
       const successMain = document.getElementById("successMain");
       const successPoints = document.getElementById("successPoints");
       const hintBox = document.getElementById("hintBox");
       const taskCard = document.getElementById("taskCard");
+      const timerBox = document.getElementById("timerBox");
+      const timerState = document.getElementById("timerState");
+      const timerText = document.getElementById("timerText");
+      const timerFill = document.getElementById("timerFill");
       const pointsStat = document.getElementById("pointsStat");
       const streakStat = document.getElementById("streakStat");
       const correctStat = document.getElementById("correctStat");
       const accuracyStat = document.getElementById("accuracyStat");
       const motivationBox = document.getElementById("motivationBox");
+      const toggleProtocolBtn = document.getElementById("toggleProtocolBtn");
+      const downloadCsvBtn = document.getElementById("downloadCsvBtn");
+      const downloadJsonBtn = document.getElementById("downloadJsonBtn");
+      const clearLogBtn = document.getElementById("clearLogBtn");
+      const protocolSummary = document.getElementById("protocolSummary");
+      const protocolTableWrap = document.getElementById("protocolTableWrap");
+      const protocolBody = document.getElementById("protocolBody");
 
       function initBranding() {
         hkvLogo.addEventListener("error", function () {
           brandLockup.classList.add("no-logo");
+        });
+      }
+
+      function clampTimeLimit(value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return 30;
+        return Math.min(300, Math.max(5, Math.round(numeric)));
+      }
+
+      function stopTaskTimer() {
+        if (state.taskTimer) {
+          window.clearInterval(state.taskTimer);
+          state.taskTimer = null;
+        }
+      }
+
+      function formatLocalTimestamp(date) {
+        return date.toLocaleString("de-CH");
+      }
+
+      function getElapsedSeconds() {
+        const elapsed = (Date.now() - state.taskStartedAt) / 1000;
+        return Math.max(0.1, Math.round(elapsed * 10) / 10);
+      }
+
+      function updateTimerDisplay() {
+        if (!state.timedMode) {
+          timerBox.classList.remove("show", "warn");
+          return;
+        }
+
+        timerBox.classList.add("show");
+        const ratio = Math.max(0, Math.min(1, state.timeLeftSec / state.timeLimitSec));
+        timerState.textContent = "Zeitdruck: aktiv";
+        timerText.textContent = state.timeLeftSec + "s";
+        timerFill.style.width = (ratio * 100) + "%";
+        timerBox.classList.toggle("warn", ratio <= 0.35);
+      }
+
+      function startTaskTimer() {
+        stopTaskTimer();
+        if (!state.timedMode || !state.currentTask) {
+          updateTimerDisplay();
+          return;
+        }
+
+        state.timeLeftSec = state.timeLimitSec;
+        updateTimerDisplay();
+
+        state.taskTimer = window.setInterval(function () {
+          state.timeLeftSec = Math.max(0, state.timeLeftSec - 1);
+          updateTimerDisplay();
+          if (state.timeLeftSec <= 0) {
+            stopTaskTimer();
+            handleTimeout();
+          }
+        }, 1000);
+      }
+
+      function addLogEntry(entry) {
+        state.logs.push(entry);
+        if (state.logs.length > 800) {
+          state.logs.shift();
+        }
+        renderProtocol();
+      }
+
+      function downloadText(filename, content, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function toCsv(rows) {
+        const headers = [
+          "Zeit",
+          "Klasse",
+          "Bereich",
+          "Aufgabe",
+          "Antwort",
+          "Korrekt",
+          "Ergebnis",
+          "Bearbeitungszeit_s",
+          "Hinweise",
+          "PunkteAenderung"
+        ];
+
+        function cell(value) {
+          const text = String(value ?? "");
+          return "\"" + text.replace(/\"/g, "\"\"") + "\"";
+        }
+
+        const lines = [headers.map(cell).join(";")];
+        rows.forEach(function (row) {
+          lines.push([
+            row.timestamp,
+            row.grade,
+            row.mode,
+            row.task,
+            row.answer,
+            row.correctAnswer,
+            row.result,
+            row.timeSec,
+            row.hints,
+            row.pointsDelta
+          ].map(cell).join(";"));
+        });
+        return lines.join("\n");
+      }
+
+      function renderProtocol() {
+        const total = state.logs.length;
+        const okCount = state.logs.filter(function (entry) { return entry.result === "Richtig"; }).length;
+        const wrongCount = state.logs.filter(function (entry) { return entry.result === "Falsch"; }).length;
+        const timeoutCount = state.logs.filter(function (entry) { return entry.result === "Zeit abgelaufen"; }).length;
+        protocolSummary.textContent = total === 0
+          ? "Noch keine Einträge."
+          : "Einträge: " + total + " | Richtig: " + okCount + " | Falsch: " + wrongCount + " | Zeit abgelaufen: " + timeoutCount;
+
+        protocolTableWrap.hidden = !state.protocolVisible;
+        toggleProtocolBtn.textContent = state.protocolVisible ? "Protokoll ausblenden" : "Protokoll anzeigen";
+
+        protocolBody.innerHTML = "";
+        if (!state.protocolVisible || total === 0) return;
+
+        state.logs.forEach(function (entry) {
+          const row = document.createElement("tr");
+          const resultClass = entry.result === "Richtig"
+            ? "result-ok"
+            : (entry.result === "Zeit abgelaufen" ? "result-time" : "result-bad");
+          row.innerHTML =
+            "<td>" + entry.timestamp + "</td>" +
+            "<td>" + entry.grade + "</td>" +
+            "<td>" + entry.mode + "</td>" +
+            "<td>" + entry.task + "</td>" +
+            "<td>" + entry.answer + "</td>" +
+            "<td>" + entry.correctAnswer + "</td>" +
+            "<td class=\"" + resultClass + "\">" + entry.result + "</td>" +
+            "<td>" + entry.timeSec + "</td>" +
+            "<td>" + entry.hints + "</td>" +
+            "<td>" + entry.pointsDelta + "</td>";
+          protocolBody.appendChild(row);
         });
       }
 
@@ -814,6 +1170,33 @@
         const showDivision = state.grade >= 3;
         divModeBtn.style.display = showDivision ? "" : "none";
         if (!showDivision && state.mode === "div") state.mode = "mix";
+      }
+
+      function handleTimeout() {
+        if (!state.currentTask) return;
+
+        state.attempts += 1;
+        state.streak = 0;
+        state.points = Math.max(0, state.points - 2);
+        answerInput.classList.remove("correct-input");
+        answerInput.classList.add("wrong-input");
+        setFeedback("Zeit abgelaufen. Neue Aufgabe wird geladen.", "bad");
+        updateStats();
+
+        addLogEntry({
+          timestamp: formatLocalTimestamp(new Date()),
+          grade: state.grade + ". Klasse",
+          mode: modeLabels[state.currentTask.mode],
+          task: state.currentTask.text,
+          answer: "—",
+          correctAnswer: state.currentTask.answer,
+          result: "Zeit abgelaufen",
+          timeSec: state.timeLimitSec.toFixed(1),
+          hints: state.hintIndex,
+          pointsDelta: -2
+        });
+
+        window.setTimeout(generateTask, 850);
       }
 
       function renderHints() {
@@ -967,6 +1350,7 @@
       }
 
       function generateTask() {
+        stopTaskTimer();
         answerInput.value = "";
         answerInput.classList.remove("correct-input", "wrong-input");
         state.hintIndex = 0;
@@ -983,10 +1367,13 @@
         if (mode === "div") task = createDivTask();
 
         state.currentTask = task;
+        state.taskStartedAt = Date.now();
+        state.timeLeftSec = state.timeLimitSec;
         equation.textContent = task.text;
         chipGrade.textContent = state.grade + ". Klasse";
         chipMode.textContent = modeLabels[mode];
         setFeedback("Neue Aufgabe geladen. Gib deine Antwort ein.", null);
+        startTaskTimer();
         answerInput.focus();
       }
 
@@ -1025,8 +1412,11 @@
         }
 
         state.attempts += 1;
+        const elapsedSec = getElapsedSeconds().toFixed(1);
+        const hintsUsed = state.hintIndex;
 
         if (guess === state.currentTask.answer) {
+          stopTaskTimer();
           state.correct += 1;
           state.streak += 1;
           const pointsWon = 8 + Math.min(16, state.streak * 2);
@@ -1038,6 +1428,19 @@
           burst();
           updateStats();
 
+          addLogEntry({
+            timestamp: formatLocalTimestamp(new Date()),
+            grade: state.grade + ". Klasse",
+            mode: modeLabels[state.currentTask.mode],
+            task: state.currentTask.text,
+            answer: guess,
+            correctAnswer: state.currentTask.answer,
+            result: "Richtig",
+            timeSec: elapsedSec,
+            hints: hintsUsed,
+            pointsDelta: pointsWon
+          });
+
           if (autoNext.checked) {
             window.setTimeout(generateTask, 900);
           }
@@ -1048,6 +1451,19 @@
           answerInput.classList.add("wrong-input");
           setFeedback(pick(encourage) + " Tipp: Nutze bei Bedarf einen Hinweis.", "bad");
           updateStats();
+
+          addLogEntry({
+            timestamp: formatLocalTimestamp(new Date()),
+            grade: state.grade + ". Klasse",
+            mode: modeLabels[state.currentTask.mode],
+            task: state.currentTask.text,
+            answer: guess,
+            correctAnswer: state.currentTask.answer,
+            result: "Falsch",
+            timeSec: elapsedSec,
+            hints: hintsUsed,
+            pointsDelta: -2
+          });
         }
       }
 
@@ -1063,6 +1479,7 @@
       }
 
       function resetProgress() {
+        stopTaskTimer();
         state.attempts = 0;
         state.correct = 0;
         state.streak = 0;
@@ -1093,6 +1510,30 @@
       newBtn.addEventListener("click", generateTask);
       resetBtn.addEventListener("click", resetProgress);
 
+      timedMode.addEventListener("change", function () {
+        state.timedMode = timedMode.checked;
+        if (state.timedMode) {
+          setFeedback("Zeitdruck aktiviert.", null);
+          startTaskTimer();
+        } else {
+          setFeedback("Zeitdruck deaktiviert.", null);
+          stopTaskTimer();
+          updateTimerDisplay();
+        }
+      });
+
+      timeLimitInput.addEventListener("change", function () {
+        state.timeLimitSec = clampTimeLimit(timeLimitInput.value);
+        timeLimitInput.value = String(state.timeLimitSec);
+        state.timeLeftSec = state.timeLimitSec;
+        if (state.timedMode) {
+          startTaskTimer();
+          setFeedback("Neue Zeit pro Aufgabe: " + state.timeLimitSec + " Sekunden.", null);
+        } else {
+          updateTimerDisplay();
+        }
+      });
+
       hintBtn.addEventListener("click", function () {
         if (!state.currentTask) return;
         if (state.hintIndex < state.currentTask.hints.length) {
@@ -1107,8 +1548,49 @@
         if (event.key === "Enter") checkAnswer();
       });
 
+      toggleProtocolBtn.addEventListener("click", function () {
+        state.protocolVisible = !state.protocolVisible;
+        renderProtocol();
+      });
+
+      clearLogBtn.addEventListener("click", function () {
+        state.logs = [];
+        state.protocolVisible = false;
+        renderProtocol();
+        setFeedback("Protokoll wurde gelöscht.", null);
+      });
+
+      downloadCsvBtn.addEventListener("click", function () {
+        if (state.logs.length === 0) {
+          setFeedback("Kein Protokoll zum Exportieren vorhanden.", "bad");
+          return;
+        }
+        const csv = toCsv(state.logs);
+        downloadText("mathe_protokoll.csv", csv, "text/csv;charset=utf-8");
+        setFeedback("CSV-Protokoll wurde heruntergeladen.", null);
+      });
+
+      downloadJsonBtn.addEventListener("click", function () {
+        if (state.logs.length === 0) {
+          setFeedback("Kein Protokoll zum Exportieren vorhanden.", "bad");
+          return;
+        }
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          totalEntries: state.logs.length,
+          entries: state.logs
+        };
+        downloadText("mathe_protokoll.json", JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+        setFeedback("JSON-Protokoll wurde heruntergeladen.", null);
+      });
+
       initBranding();
+      state.timeLimitSec = clampTimeLimit(timeLimitInput.value);
+      timeLimitInput.value = String(state.timeLimitSec);
+      state.timedMode = timedMode.checked;
+      updateTimerDisplay();
       updateStats();
+      renderProtocol();
       syncDivisionVisibility();
       generateTask();
     })();
