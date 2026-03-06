@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bilanz Zuordnung</title>
+  <style>
+    :root{
+      --bgA: #eaf4f2;
+      --bgB: #efe9f5;
+      --sidebar: #343a41;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #5b6472;
+      --border: #d7e3e3;
+      --accent: #0d3f43;
+      --accentSoft: rgba(13,63,67,.10);
+      --ok: #0f766e;
+      --okSoft: rgba(15,118,110,.12);
+      --bad: #b42318;
+      --badSoft: rgba(180,35,24,.10);
+      --shadow: 0 12px 30px rgba(2,6,23,.10);
+      --radius: 18px;
+    }
+
+    *{ box-sizing: border-box; }
+    body{
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bgA), var(--bgB));
+    }
+
+    .frame{
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 18px;
+      padding: 18px;
+    }
+
+    @media (max-width: 980px){
+      .frame{ grid-template-columns: 1fr; }
+    }
+
+    .side{
+      background: var(--sidebar);
+      border-radius: var(--radius);
+      padding: 18px;
+      color: rgba(255,255,255,.92);
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 18px;
+      align-self: start;
+    }
+
+    @media (max-width: 980px){
+      .side{ position: relative; top: 0; }
+    }
+
+    .brand{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .dot{
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #38bdf8, #22c55e);
+      box-shadow: 0 0 0 6px rgba(56,189,248,.10);
+    }
+    .brand h1{
+      font-size: 14px;
+      margin: 0;
+      letter-spacing: .2px;
+      font-weight: 700;
+    }
+    .side .meta{
+      font-size: 12px;
+      color: rgba(255,255,255,.70);
+      line-height: 1.4;
+      margin-top: 8px;
+    }
+
+    .pillRow{
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .pill{
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.12);
+      color: rgba(255,255,255,.92);
+    }
+
+    .hint{
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      font-size: 13px;
+      line-height: 1.45;
+      color: rgba(255,255,255,.84);
+    }
+
+    .main{
+      display: grid;
+      gap: 14px;
+    }
+
+    .headerCard{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .headerTop{
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .title{
+      margin: 0;
+      font-size: 26px;
+      letter-spacing: -0.3px;
+      line-height: 1.12;
+    }
+    .subtitle{
+      margin: 8px 0 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+      max-width: 72ch;
+    }
+
+    .actions{
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    button{
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 12px;
+      font-weight: 650;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    button:hover{ transform: translateY(-1px); }
+    button:active{ transform: translateY(0); }
+    .btnPrimary{
+      border-color: rgba(13,63,67,.22);
+      background: var(--accentSoft);
+      color: var(--accent);
+    }
+    .btnGhost{
+      background: transparent;
+    }
+
+    .grid{
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1.1fr .9fr;
+      align-items: start;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .panel{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .panelHeader{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .panelHeader h2{
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: .2px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .progress{
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .pool{
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr;
+      min-height: 86px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px dashed rgba(13,63,67,.35);
+      background: rgba(13,63,67,.04);
+    }
+
+    .item{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #fff;
+      cursor: grab;
+      user-select: none;
+      transition: border-color .15s ease, box-shadow .15s ease, transform .08s ease;
+    }
+    .item:hover{
+      border-color: rgba(13,63,67,.35);
+      box-shadow: 0 10px 22px rgba(2,6,23,.08);
+      transform: translateY(-1px);
+    }
+    .item:active{ cursor: grabbing; transform: translateY(0); }
+    .item .label{
+      font-size: 14px;
+      line-height: 1.25;
+      font-weight: 650;
+    }
+    .handle{
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background: rgba(13,63,67,.10);
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      flex: 0 0 auto;
+    }
+    .handle svg{ width: 14px; height: 14px; }
+
+    .item.selected{
+      border-color: rgba(13,63,67,.55);
+      box-shadow: 0 0 0 4px rgba(13,63,67,.12);
+    }
+
+    .zones{
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr 1fr;
+    }
+    @media (max-width: 620px){
+      .zones{ grid-template-columns: 1fr; }
+    }
+
+    .zone{
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: #fff;
+      padding: 12px;
+      min-height: 160px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .zoneTitle{
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .zoneTitle strong{
+      font-size: 14px;
+      letter-spacing: .1px;
+    }
+    .zoneTitle span{
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .zoneDrop{
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px dashed rgba(91,100,114,.45);
+      background: rgba(91,100,114,.06);
+      min-height: 100px;
+    }
+
+    .zone.dragOver .zoneDrop{
+      border-color: rgba(13,63,67,.60);
+      background: rgba(13,63,67,.06);
+    }
+
+    .zone.ok{
+      border-color: rgba(15,118,110,.45);
+      box-shadow: 0 0 0 4px rgba(15,118,110,.10);
+    }
+
+    .zone.bad{
+      border-color: rgba(180,35,24,.35);
+      box-shadow: 0 0 0 4px rgba(180,35,24,.08);
+    }
+
+    .feedback{
+      margin-top: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .feedbackHeader{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge{
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+    .badge.ok{
+      border-color: rgba(15,118,110,.35);
+      background: var(--okSoft);
+      color: var(--ok);
+    }
+    .badge.bad{
+      border-color: rgba(180,35,24,.28);
+      background: var(--badSoft);
+      color: var(--bad);
+    }
+    .feedbackTitle{
+      margin: 0;
+      font-size: 14px;
+      font-weight: 750;
+    }
+    .feedbackText{
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .miniNote{
+      margin: 10px 0 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .srOnly{
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="frame">
+    <aside class="side" aria-label="Seitennavigation">
+      <div class="brand">
+        <div class="dot" aria-hidden="true"></div>
+        <h1>KVdigital Interaktion</h1>
+      </div>
+
+      <div class="meta">
+        <div><strong>Aufgabe</strong>: Bilanz Zuordnung</div>
+        <div>Typ: Drag and Drop, Touch per Tippen</div>
+      </div>
+
+      <div class="pillRow">
+        <div class="pill" id="pillMode">Modus: Drag oder Tap</div>
+        <div class="pill" id="pillState">Status: bereit</div>
+      </div>
+
+      <div class="hint">
+        <strong>Merksatz</strong><br>
+        Aktiven zeigen, wofuer Mittel verwendet wurden.<br>
+        Passiven zeigen, woher diese Mittel stammen.
+        <p class="miniNote">
+          Tipp am Handy: Position antippen, dann Ziel Feld antippen.
+        </p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="headerCard">
+        <div class="headerTop">
+          <div>
+            <h2 class="title">Bilanz Zuordnung</h2>
+            <p class="subtitle">
+              Ordnen Sie jede Position der richtigen Bilanzseite zu.
+              Sie erhalten direkt Feedback inklusive kurzer Begruendung.
+            </p>
+          </div>
+
+          <div class="actions">
+            <button class="btnGhost" id="btnHint" type="button" title="Hinweis anzeigen">
+              <span aria-hidden="true">💡</span> Hinweis
+            </button>
+            <button class="btnPrimary" id="btnReset" type="button" title="Alles zuruecksetzen">
+              <span aria-hidden="true">↩️</span> Reset
+            </button>
+            <button class="btnGhost" id="btnSolution" type="button" title="Loesung anzeigen">
+              <span aria-hidden="true">✅</span> Loesung
+            </button>
+          </div>
+        </div>
+
+        <div class="feedback" id="feedback" aria-live="polite">
+          <div class="feedbackHeader">
+            <div class="badge" id="badge" aria-hidden="true">i</div>
+            <p class="feedbackTitle" id="feedbackTitle">Start</p>
+          </div>
+          <p class="feedbackText" id="feedbackText">
+            Ziehen Sie eine Position in ein Feld. Oder tippen Sie eine Position an und danach das Zielfeld.
+          </p>
+        </div>
+      </section>
+
+      <section class="grid">
+        <section class="panel" aria-label="Positionen">
+          <div class="panelHeader">
+            <h2>Positionen</h2>
+            <div class="progress" id="progress">0 von 8 korrekt</div>
+          </div>
+
+          <div class="pool zone" id="zone-pool" data-zone="pool" tabindex="0" aria-label="Positionen Bereich">
+            <div class="srOnly">Drop Zone fuer nicht zugeordnete Positionen</div>
+          </div>
+
+          <p class="miniNote">
+            Sie koennen Positionen jederzeit wieder nach oben in den Positionen Bereich zuruecklegen.
+          </p>
+        </section>
+
+        <section class="panel" aria-label="Bilanzfelder">
+          <div class="panelHeader">
+            <h2>Bilanzfelder</h2>
+            <div class="progress" id="selectedInfo">Keine Auswahl</div>
+          </div>
+
+          <div class="zones">
+            <div class="zone" data-zone="asset_fixed" tabindex="0" aria-label="Aktiven Anlagevermoegen">
+              <div class="zoneTitle">
+                <strong>Aktiven</strong>
+                <span>Anlagevermoegen</span>
+              </div>
+              <div class="zoneDrop" aria-label="Drop Bereich Aktiven Anlagevermoegen"></div>
+            </div>
+
+            <div class="zone" data-zone="asset_current" tabindex="0" aria-label="Aktiven Umlaufvermoegen">
+              <div class="zoneTitle">
+                <strong>Aktiven</strong>
+                <span>Umlaufvermoegen</span>
+              </div>
+              <div class="zoneDrop" aria-label="Drop Bereich Aktiven Umlaufvermoegen"></div>
+            </div>
+
+            <div class="zone" data-zone="equity" tabindex="0" aria-label="Passiven Eigenkapital">
+              <div class="zoneTitle">
+                <strong>Passiven</strong>
+                <span>Eigenkapital</span>
+              </div>
+              <div class="zoneDrop" aria-label="Drop Bereich Passiven Eigenkapital"></div>
+            </div>
+
+            <div class="zone" data-zone="debt" tabindex="0" aria-label="Passiven Fremdkapital">
+              <div class="zoneTitle">
+                <strong>Passiven</strong>
+                <span>Fremdkapital</span>
+              </div>
+              <div class="zoneDrop" aria-label="Drop Bereich Passiven Fremdkapital"></div>
+            </div>
+          </div>
+
+          <p class="miniNote">
+            Bilanzlogik: Aktivseite zeigt Mittelverwendung, Passivseite zeigt Mittelherkunft.
+          </p>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const items = [
+      {
+        id: "a",
+        text: "Computer und Laptops",
+        correct: "asset_fixed",
+        ok: "Korrekt. Computer und Laptops werden langfristig genutzt. Darum Anlagevermoegen auf der Aktivseite.",
+        bad: "Pruefen Sie, ob es Mittelverwendung oder Mittelherkunft ist. Das hier ist ein Vermoegenswert, also Aktivseite."
+      },
+      {
+        id: "b",
+        text: "Warenvorraete im Lager",
+        correct: "asset_current",
+        ok: "Korrekt. Warenvorraete werden verkauft oder verbraucht. Darum Umlaufvermoegen auf der Aktivseite.",
+        bad: "Hinweis: Aktivseite bedeutet Mittelverwendung. Warenvorraete sind ein Vermoegenswert, nicht eine Finanzierungsquelle."
+      },
+      {
+        id: "c",
+        text: "Aktienkapital der Gruender",
+        correct: "equity",
+        ok: "Korrekt. Aktienkapital stammt von Eigentuemerinnen und Eigentuemern. Darum Eigenkapital auf der Passivseite.",
+        bad: "Pruefen Sie die Herkunft der Mittel. Aktienkapital ist kein Vermoegenswert, sondern Finanzierung, also Passivseite."
+      },
+      {
+        id: "d",
+        text: "Offene Lieferantenrechnungen",
+        correct: "debt",
+        ok: "Korrekt. Offene Lieferantenrechnungen sind Schulden. Darum Fremdkapital auf der Passivseite.",
+        bad: "Pruefen Sie: Mittelherkunft oder Mittelverwendung. Das ist eine Verpflichtung, also Passivseite."
+      },
+      {
+        id: "e",
+        text: "Bargeld in der Kasse",
+        correct: "asset_current",
+        ok: "Korrekt. Bargeld ist sofort verfuegbar. Darum Umlaufvermoegen auf der Aktivseite.",
+        bad: "Bargeld ist ein Vermoegenswert. Es zeigt Mittelverwendung, nicht Mittelherkunft."
+      },
+      {
+        id: "f",
+        text: "Hypothek auf das Firmengrundstueck",
+        correct: "debt",
+        ok: "Korrekt. Eine Hypothek ist ein Darlehen. Darum Fremdkapital auf der Passivseite.",
+        bad: "Eine Hypothek zeigt, woher Geld stammt. Das ist Finanzierung, also Passivseite."
+      },
+      {
+        id: "g",
+        text: "Patent fuer ein Produktionsverfahren",
+        correct: "asset_fixed",
+        ok: "Korrekt. Ein Patent bringt langfristigen Nutzen. Darum Anlagevermoegen auf der Aktivseite.",
+        bad: "Ein Patent ist ein Vermoegenswert. Es ist Mittelverwendung und gehoert auf die Aktivseite."
+      },
+      {
+        id: "h",
+        text: "Einbehaltene Gewinne der Vorjahre",
+        correct: "equity",
+        ok: "Korrekt. Einbehaltene Gewinne bleiben im Unternehmen. Darum Eigenkapital auf der Passivseite.",
+        bad: "Das ist keine Mittelverwendung, sondern ein Teil der Finanzierung aus dem Unternehmen heraus. Darum Passivseite."
+      }
+    ];
+
+    const zonePool = document.getElementById("zone-pool");
+    const zones = Array.from(document.querySelectorAll(".zone")).filter(z => z.dataset.zone !== "pool");
+
+    const feedback = {
+      wrap: document.getElementById("feedback"),
+      badge: document.getElementById("badge"),
+      title: document.getElementById("feedbackTitle"),
+      text: document.getElementById("feedbackText")
+    };
+
+    const progressEl = document.getElementById("progress");
+    const selectedInfo = document.getElementById("selectedInfo");
+    const pillState = document.getElementById("pillState");
+    const pillMode = document.getElementById("pillMode");
+
+    const btnReset = document.getElementById("btnReset");
+    const btnHint = document.getElementById("btnHint");
+    const btnSolution = document.getElementById("btnSolution");
+
+    let selectedId = null;
+
+    function iconGrip(){
+      return `
+        <span class="handle" aria-hidden="true" title="Greifen">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M9 6h2v2H9V6Zm4 0h2v2h-2V6ZM9 11h2v2H9v-2Zm4 0h2v2h-2v-2ZM9 16h2v2H9v-2Zm4 0h2v2h-2v-2Z" fill="currentColor"/>
+          </svg>
+        </span>
+      `;
+    }
+
+    function createItemEl(it){
+      const el = document.createElement("div");
+      el.className = "item";
+      el.draggable = true;
+      el.id = `item-${it.id}`;
+      el.dataset.item = it.id;
+      el.setAttribute("role","button");
+      el.setAttribute("tabindex","0");
+      el.innerHTML = `<span class="label">${it.text}</span>${iconGrip()}`;
+
+      el.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", it.id);
+        e.dataTransfer.effectAllowed = "move";
+        setPill("Status: ziehen");
+      });
+
+      el.addEventListener("dragend", () => setPill("Status: bereit"));
+
+      el.addEventListener("click", () => toggleSelect(it.id));
+      el.addEventListener("keydown", (e) => {
+        if(e.key === "Enter" || e.key === " "){
+          e.preventDefault();
+          toggleSelect(it.id);
+        }
+      });
+
+      return el;
+    }
+
+    function toggleSelect(id){
+      if(selectedId === id){
+        selectedId = null;
+      } else {
+        selectedId = id;
+      }
+      updateSelectionUI();
+    }
+
+    function updateSelectionUI(){
+      document.querySelectorAll(".item").forEach(el => {
+        el.classList.toggle("selected", el.dataset.item === selectedId);
+      });
+
+      if(selectedId){
+        const it = items.find(x => x.id === selectedId);
+        selectedInfo.textContent = `Ausgewaehlt: ${it.text}`;
+        pillMode.textContent = "Modus: Tap aktiv";
+      } else {
+        selectedInfo.textContent = "Keine Auswahl";
+        pillMode.textContent = "Modus: Drag oder Tap";
+      }
+    }
+
+    function setPill(text){
+      pillState.textContent = text;
+    }
+
+    function setFeedback(type, title, text){
+      feedback.title.textContent = title;
+      feedback.text.textContent = text;
+
+      feedback.badge.className = "badge";
+      feedback.badge.textContent = "i";
+
+      if(type === "ok"){
+        feedback.badge.classList.add("ok");
+        feedback.badge.textContent = "✓";
+      }
+      if(type === "bad"){
+        feedback.badge.classList.add("bad");
+        feedback.badge.textContent = "!";
+      }
+    }
+
+    function countCorrect(){
+      let correct = 0;
+      items.forEach(it => {
+        const el = document.getElementById(`item-${it.id}`);
+        const parentZone = el?.closest(".zone")?.dataset.zone;
+        if(parentZone && parentZone !== "pool" && parentZone === it.correct){
+          correct++;
+        }
+      });
+      progressEl.textContent = `${correct} von ${items.length} korrekt`;
+      return correct;
+    }
+
+    function clearZoneState(){
+      document.querySelectorAll(".zone").forEach(z => {
+        z.classList.remove("ok","bad","dragOver");
+      });
+    }
+
+    function placeItem(itemId, zoneName){
+      const it = items.find(x => x.id === itemId);
+      const itemEl = document.getElementById(`item-${itemId}`);
+      if(!it || !itemEl) return;
+
+      const targetZoneEl = zoneName === "pool"
+        ? zonePool
+        : document.querySelector(`.zone[data-zone="${zoneName}"] .zoneDrop`);
+
+      if(!targetZoneEl) return;
+
+      targetZoneEl.appendChild(itemEl);
+
+      clearZoneState();
+
+      if(zoneName === "pool"){
+        setFeedback("ok", "Zurueckgelegt", "Die Position ist wieder im Positionen Bereich. Sie koennen sie erneut zuordnen.");
+        selectedId = null;
+        updateSelectionUI();
+        countCorrect();
+        return;
+      }
+
+      const isCorrect = (zoneName === it.correct);
+      const zoneCard = document.querySelector(`.zone[data-zone="${zoneName}"]`);
+      zoneCard.classList.add(isCorrect ? "ok" : "bad");
+
+      if(isCorrect){
+        setFeedback("ok", "Richtig", it.ok);
+      } else {
+        setFeedback("bad", "Noch nicht", it.bad + " Merksatz: Aktiven gleich Mittelverwendung, Passiven gleich Mittelherkunft.");
+      }
+
+      selectedId = null;
+      updateSelectionUI();
+
+      const correctNow = countCorrect();
+      if(correctNow === items.length){
+        setFeedback("ok", "Fertig", "Alles korrekt zugeordnet. Sehr gut. Sie haben Aktivseite und Passivseite sauber getrennt.");
+      }
+    }
+
+    function wireDropZone(zoneEl, zoneName){
+      zoneEl.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        zoneEl.classList.add("dragOver");
+      });
+
+      zoneEl.addEventListener("dragleave", () => zoneEl.classList.remove("dragOver"));
+
+      zoneEl.addEventListener("drop", (e) => {
+        e.preventDefault();
+        zoneEl.classList.remove("dragOver");
+        const itemId = e.dataTransfer.getData("text/plain");
+        placeItem(itemId, zoneName);
+      });
+
+      zoneEl.addEventListener("click", () => {
+        if(selectedId){
+          placeItem(selectedId, zoneName);
+        }
+      });
+
+      zoneEl.addEventListener("keydown", (e) => {
+        if((e.key === "Enter" || e.key === " ") && selectedId){
+          e.preventDefault();
+          placeItem(selectedId, zoneName);
+        }
+      });
+    }
+
+    function render(){
+      zonePool.innerHTML = "";
+      items.forEach(it => zonePool.appendChild(createItemEl(it)));
+      countCorrect();
+
+      wireDropZone(zonePool, "pool");
+      zones.forEach(z => wireDropZone(z.querySelector(".zoneDrop"), z.dataset.zone));
+
+      setFeedback("ok", "Start", "Ziehen Sie eine Position in ein Feld. Oder tippen Sie eine Position an und danach das Zielfeld.");
+      setPill("Status: bereit");
+      updateSelectionUI();
+    }
+
+    function resetAll(){
+      selectedId = null;
+      updateSelectionUI();
+      clearZoneState();
+      render();
+      setFeedback("ok", "Reset", "Alles wurde zurueckgesetzt. Sie koennen von vorne starten.");
+    }
+
+    function showHint(){
+      setFeedback(
+        "ok",
+        "Hinweis",
+        "Aktiven zeigen, wofuer Mittel verwendet wurden. Passiven zeigen, woher die Mittel stammen. Anlagevermoegen ist langfristig, Umlaufvermoegen ist kurzfristig."
+      );
+    }
+
+    function showSolution(){
+      // Optional: automatische Platzierung. Wenn du das nicht willst, loesche diese Funktion oder den Button.
+      items.forEach(it => placeItem(it.id, it.correct));
+      setFeedback("ok", "Loesung angezeigt", "Alle Positionen wurden in die korrekten Felder gelegt. Nutzen Sie das zum Vergleichen.");
+    }
+
+    btnReset.addEventListener("click", resetAll);
+    btnHint.addEventListener("click", showHint);
+    btnSolution.addEventListener("click", showSolution);
+
+    render();
+  </script>
+</body>
+</html>
