@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Timeline Education — Ertragsprognose</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.5.0/Recharts.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+body{background:#f5f5f7;color:#1d1d1f;font-family:'Inter',system-ui,sans-serif;min-height:100vh;font-size:14px}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+input[type=range]{-webkit-appearance:none;height:2px;background:#d2d2d7;border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#0071e3;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#c7c7cc;border-radius:3px}
+.fade{animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.card{background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 2px 8px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.06)}
+.pill{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;letter-spacing:.01em}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {useState,useCallback,useRef}=React;
+const {LineChart,Line,BarChart,Bar,XAxis,YAxis,Tooltip,ResponsiveContainer,CartesianGrid,Legend}=Recharts;
+
+const YEARS=[2024,2025,2026,2027,2028];
+const ADMIN=1500;
+const FIELDS=[{k:"s",l:"Schule"},{k:"v",l:"Verlag"},{k:"r",l:"Referent"},{k:"e",l:"Examen"},{k:"a",l:"Autor"},{k:"u",l:"Aufschalt"}];
+const PRICE_KEYS=[{k:"s",l:"Schule"},{k:"v",l:"Verlag"},{k:"r",l:"Referent"},{k:"e",l:"Examen"},{k:"a",l:"Autor"},{k:"u",l:"Aufschalt"}];
+
+// ── Google Sheets config ───────────────────────────────────────────────────
+// ANPASSEN: Diese Werte nach dem Setup-Guide befüllen
+const GS_CONFIG = {
+  spreadsheetId: "DEINE_SPREADSHEET_ID",  // z.B. "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+  apiKey: "DEIN_API_KEY",                  // Nur für Lesen (öffentliches Sheet)
+  // Für Schreiben: OAuth2 oder Service Account nötig (siehe Anleitung)
+};
+
+const DEFAULT=[
+  {id:"hkv-aarau",name:"HKV Aarau",prob:1,active:true,color:"#0071e3",
+   years:{2024:{s:1546,r:104,v:0,e:0,a:0,u:0},2025:{s:1748,r:94,v:0,e:0,a:0,u:0},2026:{s:1750,r:90,v:0,e:0,a:0,u:0},2027:{s:1750,r:90,v:0,e:0,a:0,u:0},2028:{s:1750,r:90,v:0,e:0,a:0,u:0}},
+   prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"bzf",name:"BZF Fricktal",prob:1,active:true,color:"#5e5ce6",
+   years:{2024:{s:154,r:10,v:0,e:0,a:0,u:0},2025:{s:197,r:10,v:0,e:0,a:0,u:0},2026:{s:220,r:15,v:0,e:0,a:0,u:0},2027:{s:200,r:15,v:0,e:0,a:0,u:0},2028:{s:200,r:15,v:0,e:0,a:0,u:0}},
+   prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"fo-edu",name:"FO Education",prob:1,active:true,color:"#30d158",
+   years:{2024:{s:0,r:0,v:444,e:0,a:7,u:0},2025:{s:0,r:0,v:480,e:0,a:12,u:1},2026:{s:0,r:0,v:350,e:0,a:18,u:1},2027:{s:0,r:0,v:550,e:0,a:20,u:1},2028:{s:0,r:0,v:550,e:0,a:20,u:1}},
+   prices:{s:60,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"edupool",name:"KV edupool",prob:1,active:true,color:"#ff453a",
+   years:{2024:{s:0,r:0,v:0,e:0,a:8,u:1},2025:{s:0,r:79,v:418,e:0,a:8,u:1},2026:{s:0,r:180,v:1881,e:700,a:8,u:1},2027:{s:0,r:0,v:2181,e:1000,a:150,u:0},2028:{s:0,r:0,v:2781,e:750,a:120,u:0}},
+   prices:{s:150,r:100,v:60,e:65,a:150,u:1500}},
+  {id:"sib",name:"SIB",prob:0.7,active:true,color:"#ff9f0a",
+   years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:5,v:0,e:0,a:0,u:0},2027:{s:20,r:5,v:0,e:0,a:0,u:0},2028:{s:50,r:5,v:0,e:0,a:0,u:0}},
+   prices:{s:175,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"bsl",name:"BSL Lenzburg",prob:0.5,active:true,color:"#64d2ff",
+   years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:0,e:0,a:0,u:0},2027:{s:0,r:0,v:0,e:0,a:0,u:0},2028:{s:0,r:0,v:0,e:0,a:0,u:0}},
+   prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"hkv-swiss",name:"HKV Swiss",prob:1,active:true,color:"#bf5af2",
+   years:{2024:{s:15,r:9,v:0,e:0,a:0,u:0},2025:{s:64,r:5,v:0,e:0,a:0,u:0},2026:{s:200,r:20,v:0,e:0,a:0,u:0},2027:{s:250,r:20,v:0,e:0,a:0,u:0},2028:{s:300,r:20,v:0,e:0,a:0,u:0}},
+   prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"edupool-sbb",name:"edupool SBB",prob:1,active:true,color:"#ff2d55",
+   years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:350,r:0,v:0,e:0,a:0,u:0},2026:{s:350,r:0,v:0,e:0,a:0,u:0},2027:{s:350,r:0,v:0,e:0,a:0,u:0},2028:{s:350,r:0,v:0,e:0,a:0,u:0}},
+   prices:{s:60,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"kv-basel",name:"KV Basel",prob:1,active:true,color:"#32ade6",
+   years:{2024:{s:1,r:0,v:0,e:0,a:0,u:0},2025:{s:1,r:0,v:0,e:0,a:0,u:0},2026:{s:1,r:0,v:0,e:0,a:0,u:0},2027:{s:1,r:0,v:0,e:0,a:0,u:0},2028:{s:1,r:0,v:0,e:0,a:0,u:0}},
+   prices:{s:10000,r:100,v:60,e:65,a:150,u:1500}},
+  {id:"swiss-acc",name:"Swiss Acc.",prob:1,active:true,color:"#0071e3",
+   years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:100,e:0,a:0,u:0},2027:{s:100,r:0,v:0,e:0,a:0,u:0},2028:{s:100,r:0,v:0,e:0,a:0,u:0}},
+   prices:{s:175,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"liebegg",name:"Liebegg",prob:1,active:true,color:"#34c759",
+   years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:40,r:10,v:0,e:0,a:0,u:1},2027:{s:100,r:0,v:0,e:0,a:0,u:0},2028:{s:200,r:0,v:0,e:0,a:0,u:0}},
+   prices:{s:135,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"iffp",name:"IfFP",prob:0.7,active:true,color:"#ac8e68",
+   years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:0,e:0,a:0,u:0},2027:{s:0,r:0,v:0,e:0,a:0,u:0},2028:{s:0,r:0,v:0,e:0,a:0,u:0}},
+   prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"kunde-13",name:"Kunde 13",prob:0,active:false,color:"#8e8e93",
+   years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:0,e:0,a:0,u:0},2027:{s:0,r:0,v:0,e:0,a:0,u:0},2028:{s:0,r:0,v:0,e:0,a:0,u:0}},
+   prices:{s:175,r:100,v:80,e:65,a:150,u:1500}},
+  {id:"kunde-14",name:"Kunde 14",prob:0,active:false,color:"#8e8e93",
+   years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:0,e:0,a:0,u:0},2027:{s:0,r:0,v:0,e:0,a:0,u:0},2028:{s:0,r:0,v:0,e:0,a:0,u:0}},
+   prices:{s:175,r:100,v:80,e:65,a:150,u:1500}},
+];
+
+function cy(c,y){const d=c.years[y],p=c.prices,r=d.s*p.s+d.r*p.r+d.v*p.v+d.e*p.e+d.a*p.a+d.u*p.u;return r+(r>0?ADMIN:0);}
+function yt(cls,y){return cls.filter(c=>c.active).reduce((s,c)=>s+cy(c,y),0);}
+function ct(c){return YEARS.reduce((s,y)=>s+cy(c,y),0);}
+function fmt(n){return new Intl.NumberFormat("de-CH",{style:"currency",currency:"CHF",maximumFractionDigits:0}).format(n);}
+function fmtK(n){return n>=1e6?(n/1e6).toFixed(1)+"M":n>=1000?(n/1000).toFixed(0)+"k":String(n);}
+function aCol(c){if(!c.active)return"#c7c7cc";const t=ct(c);if(t===0)return"#ff3b30";if(c.prob<0.5)return"#ff9500";if(t<20000)return"#ffcc00";return"#34c759";}
+
+// ── Tooltip custom ────────────────────────────────────────────────────────────
+function CustomTooltip({active,payload,label}){
+  if(!active||!payload||!payload.length)return null;
+  return React.createElement("div",{style:{background:"rgba(255,255,255,.96)",borderRadius:12,padding:"10px 14px",boxShadow:"0 4px 20px rgba(0,0,0,.12)",border:"none",fontSize:12}},
+    React.createElement("div",{style:{fontWeight:600,color:"#1d1d1f",marginBottom:6}},label),
+    payload.map((p,i)=>React.createElement("div",{key:i,style:{color:p.color||"#1d1d1f",display:"flex",justifyContent:"space-between",gap:16}},
+      React.createElement("span",null,p.name),React.createElement("span",{style:{fontWeight:600}},fmt(p.value))
+    ))
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App(){
+  const [clients,setClients]=useState(DEFAULT);
+  const [tab,setTab]=useState("overview");
+  const [selId,setSelId]=useState(null);
+  const [scen,setScen]=useState({pess:-15,real:0,opt:20});
+  const [selYear,setSelYear]=useState(2025);
+  const [modal,setModal]=useState(null);
+  const [importTxt,setImportTxt]=useState("");
+  const [importErr,setImportErr]=useState("");
+  const [note,setNote]=useState(null);
+  const [gsStatus,setGsStatus]=useState("idle"); // idle|loading|ok|err
+  const [focusCell,setFocusCell]=useState(null);
+  const selC=clients.find(c=>c.id===selId)||null;
+
+  function toast(msg,ok=true){setNote({msg,ok});setTimeout(()=>setNote(null),3000);}
+  function updY(id,y,f,v){setClients(p=>p.map(c=>c.id===id?{...c,years:{...c.years,[y]:{...c.years[y],[f]:parseFloat(v)||0}}}:c));}
+  function updP(id,f,v){setClients(p=>p.map(c=>c.id===id?{...c,prices:{...c.prices,[f]:parseFloat(v)||0}}:c));}
+  function updProp(id,f,v){setClients(p=>p.map(c=>c.id===id?{...c,[f]:v}:c));}
+
+  // Export/Import
+  function doExport(){
+    const txt=JSON.stringify({v:1,exportedAt:new Date().toISOString(),clients,scen});
+    setModal({type:"export",txt});
+  }
+  function doCopy(){navigator.clipboard.writeText(modal.txt).then(()=>toast("Kopiert ✓")).catch(()=>toast("Manuell kopieren",false));}
+  function doImport(){
+    setImportErr("");
+    try{
+      const d=JSON.parse(importTxt.trim());
+      if(!d.clients)throw new Error("Ungültiges Format");
+      setClients(d.clients);
+      if(d.scen)setScen(d.scen);
+      setModal(null);setImportTxt("");
+      toast("Importiert ✓ Stand: "+new Date(d.exportedAt).toLocaleString("de-CH"));
+    }catch(e){setImportErr("Fehler: "+e.message);}
+  }
+
+  // Google Sheets sync (read-only via API key — public sheet)
+  async function syncFromSheets(){
+    if(GS_CONFIG.spreadsheetId==="DEINE_SPREADSHEET_ID"){toast("Bitte erst spreadsheetId & apiKey in der HTML-Datei eintragen",false);return;}
+    setGsStatus("loading");
+    try{
+      const url=`https://sheets.googleapis.com/v4/spreadsheets/${GS_CONFIG.spreadsheetId}/values/Daten!A1:Z200?key=${GS_CONFIG.apiKey}`;
+      const res=await fetch(url);
+      if(!res.ok)throw new Error("HTTP "+res.status);
+      const json=await res.json();
+      // Erwartet JSON-String in Zelle A1
+      const raw=json.values&&json.values[0]&&json.values[0][0];
+      if(!raw)throw new Error("Keine Daten in Sheet");
+      const d=JSON.parse(raw);
+      if(d.clients)setClients(d.clients);
+      if(d.scen)setScen(d.scen);
+      setGsStatus("ok");
+      toast("Aus Google Sheets geladen ✓");
+      setTimeout(()=>setGsStatus("idle"),3000);
+    }catch(e){setGsStatus("err");toast("Sync-Fehler: "+e.message,false);setTimeout(()=>setGsStatus("idle"),4000);}
+  }
+
+  // Derived
+  const totalG=YEARS.reduce((s,y)=>s+yt(clients,y),0);
+  const totalW=clients.filter(c=>c.active).reduce((s,c)=>s+ct(c)*c.prob,0);
+  const c25=yt(clients,2025),c28=yt(clients,2028);
+  const cagr=c25>0?((c28/c25)**(1/3)-1)*100:0;
+  const oData=YEARS.map(y=>{const b=yt(clients,y);return{year:String(y),Basis:b,Pessimistisch:Math.round(b*(1+scen.pess/100)),Optimistisch:Math.round(b*(1+scen.opt/100))};});
+
+  // ── Styles ─────────────────────────────────────────────────────────────────
+  const C={blue:"#0071e3",green:"#34c759",red:"#ff3b30",orange:"#ff9500",gray:"#8e8e93",bg:"#f5f5f7",card:"#ffffff",border:"#e5e5ea",text:"#1d1d1f",sub:"#6e6e73"};
+  const btnPrimary={padding:"8px 18px",background:C.blue,border:"none",color:"#fff",borderRadius:20,fontSize:13,fontWeight:500,cursor:"pointer",transition:"opacity .15s"};
+  const btnGhost={padding:"7px 16px",background:"transparent",border:"1px solid "+C.border,color:C.text,borderRadius:20,fontSize:13,fontWeight:500,cursor:"pointer"};
+  const btnSuccess={...btnPrimary,background:C.green};
+  const tabStyle=(a)=>({padding:"8px 18px",background:a?"#fff":"transparent",border:"none",color:a?C.blue:C.sub,fontWeight:a?600:400,borderRadius:20,fontSize:13,cursor:"pointer",transition:"all .15s",boxShadow:a?"0 1px 4px rgba(0,0,0,.1)":"none"});
+  const inputStyle={width:"100%",background:"transparent",border:"none",borderBottom:"1.5px solid "+C.border,color:C.blue,fontSize:13,textAlign:"right",padding:"3px 2px",outline:"none",fontFamily:"inherit"};
+
+  const TABS=[["overview","Übersicht"],["kunden","Kunden"],["simulation","Simulation"],["details","Detaileingabe"]];
+
+  return React.createElement("div",{style:{minHeight:"100vh",background:C.bg}},
+
+    // Toast
+    note&&React.createElement("div",{style:{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",zIndex:2000,background:note.ok?C.green:C.red,color:"#fff",padding:"10px 20px",borderRadius:20,fontSize:13,fontWeight:500,boxShadow:"0 4px 20px rgba(0,0,0,.15)",whiteSpace:"nowrap"}},note.msg),
+
+    // Modal
+    modal&&React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(8px)"},onClick:e=>{if(e.target===e.currentTarget){setModal(null);setImportTxt("");setImportErr("");}}},
+      React.createElement("div",{style:{background:"#fff",borderRadius:20,padding:28,width:560,maxWidth:"92vw",boxShadow:"0 20px 60px rgba(0,0,0,.2)"}},
+        modal.type==="export"?React.createElement(React.Fragment,null,
+          React.createElement("div",{style:{fontSize:17,fontWeight:600,color:C.text,marginBottom:4}},"Daten exportieren"),
+          React.createElement("div",{style:{fontSize:13,color:C.sub,marginBottom:14}},"Text kopieren und per Slack oder Mail an Thomas schicken. Er fügt ihn im Import-Dialog ein."),
+          React.createElement("textarea",{readOnly:true,value:modal.txt,onClick:e=>e.target.select(),style:{width:"100%",height:160,background:C.bg,border:"1px solid "+C.border,borderRadius:12,color:C.blue,fontSize:11,fontFamily:"'SF Mono',monospace",padding:12,resize:"none",outline:"none"}}),
+          React.createElement("div",{style:{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}},
+            React.createElement("button",{style:btnGhost,onClick:()=>setModal(null)},"Schliessen"),
+            React.createElement("button",{style:btnSuccess,onClick:doCopy},"Kopieren")
+          )
+        ):React.createElement(React.Fragment,null,
+          React.createElement("div",{style:{fontSize:17,fontWeight:600,color:C.text,marginBottom:4}},"Daten importieren"),
+          React.createElement("div",{style:{fontSize:13,color:C.sub,marginBottom:14}},"JSON-Text von Ozan oder Thomas hier einfügen."),
+          React.createElement("textarea",{value:importTxt,onChange:e=>setImportTxt(e.target.value),placeholder:"JSON einfügen…",style:{width:"100%",height:160,background:C.bg,border:"1px solid "+(importErr?C.red:C.border),borderRadius:12,color:C.text,fontSize:11,fontFamily:"'SF Mono',monospace",padding:12,resize:"none",outline:"none"}}),
+          importErr&&React.createElement("div",{style:{fontSize:12,color:C.red,marginTop:6}},importErr),
+          React.createElement("div",{style:{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}},
+            React.createElement("button",{style:btnGhost,onClick:()=>{setModal(null);setImportTxt("");setImportErr("");}}, "Abbrechen"),
+            React.createElement("button",{style:btnPrimary,onClick:doImport},"Importieren")
+          )
+        )
+      )
+    ),
+
+    // Navbar
+    React.createElement("div",{style:{background:"rgba(255,255,255,.85)",backdropFilter:"blur(20px)",borderBottom:"1px solid "+C.border,position:"sticky",top:0,zIndex:100}},
+      React.createElement("div",{style:{maxWidth:1200,margin:"0 auto",padding:"0 24px",display:"flex",alignItems:"center",gap:0,height:52}},
+        React.createElement("div",{style:{marginRight:32}},
+          React.createElement("div",{style:{fontSize:11,color:C.blue,fontWeight:600,letterSpacing:".04em",textTransform:"uppercase"}},"\u25CF Timeline Education"),
+          React.createElement("div",{style:{fontSize:15,fontWeight:600,color:C.text,letterSpacing:"-.02em"}}, "Ertragsprognose 2024–2028")
+        ),
+        React.createElement("div",{style:{display:"flex",gap:4,flex:1,background:C.bg,borderRadius:22,padding:"4px",border:"1px solid "+C.border}},
+          TABS.map(([k,l])=>React.createElement("button",{key:k,style:tabStyle(tab===k),onClick:()=>setTab(k)},l))
+        ),
+        React.createElement("div",{style:{display:"flex",gap:8,marginLeft:16,alignItems:"center"}},
+          React.createElement("button",{style:{...btnGhost,fontSize:12},onClick:syncFromSheets,disabled:gsStatus==="loading"},
+            gsStatus==="loading"?"Lädt…":gsStatus==="ok"?"✓ Synced":gsStatus==="err"?"✗ Fehler":"↓ Google Sheets"
+          ),
+          React.createElement("button",{style:{...btnGhost,fontSize:12},onClick:()=>setModal({type:"import"})},"↓ Import"),
+          React.createElement("button",{style:{...btnSuccess,fontSize:12},onClick:doExport},"↑ Export")
+        )
+      )
+    ),
+
+    // Content
+    React.createElement("div",{style:{maxWidth:1200,margin:"0 auto",padding:"24px"}},
+
+      // ── OVERVIEW ──────────────────────────────────────────────────────────
+      tab==="overview"&&React.createElement("div",{className:"fade"},
+        // KPIs
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}},
+          [[`Total brutto`,fmt(totalG),"2024–2028 kumuliert",C.blue],
+           [`Gewichtet`,fmt(totalW),"Nach Wahrscheinlichkeit",C.green],
+           [`CAGR 2025–28`,cagr.toFixed(1)+" %","Jährl. Wachstum",cagr>10?C.green:C.orange],
+           [`Aktive Kunden`,clients.filter(c=>c.active).length,"von "+clients.length+" total",C.blue]
+          ].map(([l,v,s,col],i)=>
+            React.createElement("div",{key:i,className:"card"},
+              React.createElement("div",{style:{fontSize:11,color:C.sub,fontWeight:500,marginBottom:8,letterSpacing:".02em",textTransform:"uppercase"}},l),
+              React.createElement("div",{style:{fontSize:26,fontWeight:600,color:col,letterSpacing:"-.02em",lineHeight:1.1}},v),
+              React.createElement("div",{style:{fontSize:11,color:C.sub,marginTop:4}},s)
+            )
+          )
+        ),
+
+        // Charts row
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12,marginBottom:16}},
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:16}},"Ertragsentwicklung"),
+            React.createElement(ResponsiveContainer,{width:"100%",height:210},
+              React.createElement(LineChart,{data:oData},
+                React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0",vertical:false}),
+                React.createElement(XAxis,{dataKey:"year",tick:{fill:C.sub,fontSize:11},axisLine:false,tickLine:false}),
+                React.createElement(YAxis,{tickFormatter:fmtK,tick:{fill:C.sub,fontSize:10},axisLine:false,tickLine:false,width:42}),
+                React.createElement(Tooltip,{content:React.createElement(CustomTooltip)}),
+                React.createElement(Line,{type:"monotone",dataKey:"Basis",stroke:C.blue,strokeWidth:2.5,dot:{r:3,fill:C.blue},name:"Basis"}),
+                React.createElement(Line,{type:"monotone",dataKey:"Pessimistisch",stroke:C.red,strokeWidth:1.5,strokeDasharray:"4 3",dot:false,name:"Pessimistisch"}),
+                React.createElement(Line,{type:"monotone",dataKey:"Optimistisch",stroke:C.green,strokeWidth:1.5,strokeDasharray:"4 3",dot:false,name:"Optimistisch"}),
+                React.createElement(Legend,{wrapperStyle:{fontSize:11,color:C.sub}})
+              )
+            )
+          ),
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:16}},"Ertrag je Jahr"),
+            React.createElement(ResponsiveContainer,{width:"100%",height:210},
+              React.createElement(BarChart,{data:YEARS.map(y=>({year:String(y),CHF:yt(clients,y)})),barCategoryGap:"35%"},
+                React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0",vertical:false}),
+                React.createElement(XAxis,{dataKey:"year",tick:{fill:C.sub,fontSize:11},axisLine:false,tickLine:false}),
+                React.createElement(YAxis,{tickFormatter:fmtK,tick:{fill:C.sub,fontSize:10},axisLine:false,tickLine:false,width:42}),
+                React.createElement(Tooltip,{content:React.createElement(CustomTooltip)}),
+                React.createElement(Bar,{dataKey:"CHF",fill:C.blue,radius:[6,6,0,0],name:"Ertrag"})
+              )
+            )
+          )
+        ),
+
+        // Kunden grid
+        React.createElement("div",{className:"card"},
+          React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:14}},"Kunden auf einen Blick"),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10}},
+            clients.map(c=>{
+              const col=aCol(c),tot=ct(c);
+              return React.createElement("div",{key:c.id,
+                onClick:()=>{setSelId(c.id);setTab("kunden");},
+                style:{background:c.active?"#f5f5f7":"#fafafa",border:"1.5px solid "+(selId===c.id?C.blue:col+"44"),borderRadius:12,padding:"12px 14px",cursor:"pointer",opacity:c.active?1:.5,transition:"all .15s"},
+                onMouseEnter:e=>{e.currentTarget.style.borderColor=col;e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.08)";},
+                onMouseLeave:e=>{e.currentTarget.style.borderColor=col+"44";e.currentTarget.style.boxShadow="none";}},
+                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:6}},
+                  React.createElement("div",{style:{width:7,height:7,borderRadius:"50%",background:col,flexShrink:0}}),
+                  React.createElement("div",{style:{fontSize:11,color:C.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}),
+                  c.name
+                ),
+                React.createElement("div",{style:{fontSize:15,color:C.text,fontWeight:600,letterSpacing:"-.02em"}},...[fmtK(tot)]),
+                React.createElement("div",{style:{fontSize:10,color:C.sub,marginTop:2}},Math.round(c.prob*100)+"% · 5J")
+              );
+            })
+          )
+        )
+      ),
+
+      // ── KUNDEN ────────────────────────────────────────────────────────────
+      tab==="kunden"&&React.createElement("div",{className:"fade",style:{display:"grid",gridTemplateColumns:"200px 1fr",gap:16}},
+        // Sidebar
+        React.createElement("div",{className:"card",style:{padding:0,overflow:"hidden",alignSelf:"start"}},
+          React.createElement("div",{style:{padding:"12px 16px",borderBottom:"1px solid "+C.border,fontSize:11,color:C.sub,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em"}},"Kunden"),
+          clients.map(c=>{
+            const sel=c.id===selId,col=aCol(c);
+            return React.createElement("div",{key:c.id,onClick:()=>setSelId(c.id),
+              style:{padding:"10px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:sel?"#f0f7ff":"transparent",borderLeft:sel?"3px solid "+C.blue:"3px solid transparent",opacity:c.active?1:.5,transition:"all .1s"}},
+              React.createElement("div",{style:{width:6,height:6,borderRadius:"50%",background:col,flexShrink:0}}),
+              React.createElement("div",{style:{fontSize:12,color:sel?C.blue:C.text,fontWeight:sel?600:400,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},c.name),
+              React.createElement("div",{style:{fontSize:10,color:C.sub}},fmtK(ct(c)))
+            );
+          })
+        ),
+
+        selC?React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+          // Header card
+          React.createElement("div",{className:"card",style:{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}},
+            React.createElement("div",{style:{width:12,height:12,borderRadius:"50%",background:aCol(selC)}}),
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:20,fontWeight:600,color:C.text,letterSpacing:"-.02em"}},selC.name),
+              React.createElement("div",{style:{fontSize:12,color:C.sub,marginTop:2}},"5J brutto: ",React.createElement("span",{style:{color:C.text,fontWeight:500}},fmt(ct(selC))),"  ·  gewichtet: ",React.createElement("span",{style:{color:C.green,fontWeight:500}},fmt(ct(selC)*selC.prob)))
+            ),
+            React.createElement("div",{style:{marginLeft:"auto",display:"flex",gap:20,alignItems:"center"}},
+              React.createElement("label",{style:{fontSize:11,color:C.sub,display:"flex",flexDirection:"column",gap:4,userSelect:"none"}},
+                React.createElement("span",null,"Wahrscheinlichkeit — ",React.createElement("span",{style:{color:C.blue,fontWeight:600}},Math.round(selC.prob*100),"%")),
+                React.createElement("input",{type:"range",min:0,max:100,value:Math.round(selC.prob*100),onChange:e=>updProp(selC.id,"prob",parseFloat(e.target.value)/100),style:{width:120,accentColor:C.blue}})
+              ),
+              React.createElement("label",{style:{fontSize:12,color:C.sub,display:"flex",alignItems:"center",gap:6,cursor:"pointer",userSelect:"none"}},
+                React.createElement("input",{type:"checkbox",checked:selC.active,onChange:e=>updProp(selC.id,"active",e.target.checked),style:{accentColor:C.blue,width:14,height:14}}),
+                "Aktiv"
+              )
+            )
+          ),
+
+          // Chart
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:14}},"Ertragsverlauf"),
+            React.createElement(ResponsiveContainer,{width:"100%",height:150},
+              React.createElement(BarChart,{data:YEARS.map(y=>({year:String(y),CHF:cy(selC,y)})),barCategoryGap:"35%"},
+                React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0",vertical:false}),
+                React.createElement(XAxis,{dataKey:"year",tick:{fill:C.sub,fontSize:11},axisLine:false,tickLine:false}),
+                React.createElement(YAxis,{tickFormatter:fmtK,tick:{fill:C.sub,fontSize:10},axisLine:false,tickLine:false,width:42}),
+                React.createElement(Tooltip,{content:React.createElement(CustomTooltip)}),
+                React.createElement(Bar,{dataKey:"CHF",fill:selC.color||C.blue,radius:[6,6,0,0],name:"Ertrag"})
+              )
+            )
+          ),
+
+          // Prices
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:14}},"Preise CHF / Einheit"),
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}},
+              PRICE_KEYS.map(({k,l})=>
+                React.createElement("div",{key:k,style:{background:C.bg,borderRadius:10,padding:"10px 12px"}},
+                  React.createElement("div",{style:{fontSize:10,color:C.sub,textTransform:"uppercase",letterSpacing:".04em",marginBottom:4}},l),
+                  React.createElement("input",{type:"number",value:selC.prices[k],onChange:e=>updP(selC.id,k,e.target.value),style:{...inputStyle,fontSize:16,fontWeight:600,color:C.text}})
+                )
+              )
+            )
+          ),
+
+          // Quantities
+          React.createElement("div",{className:"card"},
+            React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:14}},"Mengen je Jahr"),
+            React.createElement("div",{style:{overflowX:"auto"}},
+              React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12}},
+                React.createElement("thead",null,React.createElement("tr",null,
+                  ["Kategorie",...YEARS.map(String)].map(h=>React.createElement("th",{key:h,style:{padding:"6px 10px",textAlign:h==="Kategorie"?"left":"right",color:C.sub,fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em",borderBottom:"1px solid "+C.border}},h))
+                )),
+                React.createElement("tbody",null,
+                  FIELDS.map(({k,l},fi)=>React.createElement("tr",{key:k,style:{background:fi%2===0?C.bg:"transparent"}},
+                    React.createElement("td",{style:{padding:"6px 10px",color:C.sub,textTransform:"capitalize"}},l),
+                    YEARS.map(y=>React.createElement("td",{key:y,style:{padding:"3px 6px",textAlign:"right"}},
+                      React.createElement("input",{type:"number",value:selC.years[y][k],onChange:e=>updY(selC.id,y,k,e.target.value),
+                        style:{...inputStyle,width:70,color:focusCell===`${selC.id}-${y}-${k}`?C.blue:C.text,borderBottomColor:focusCell===`${selC.id}-${y}-${k}`?C.blue:C.border},
+                        onFocus:()=>setFocusCell(`${selC.id}-${y}-${k}`),onBlur:()=>setFocusCell(null)})
+                    ))
+                  )),
+                  React.createElement("tr",{style:{borderTop:"1px solid "+C.border}},
+                    React.createElement("td",{style:{padding:"8px 10px",color:C.text,fontWeight:600}}, "Ertrag"),
+                    YEARS.map(y=>React.createElement("td",{key:y,style:{padding:"8px 10px",textAlign:"right",color:C.green,fontWeight:600,fontSize:13}},fmt(cy(selC,y))))
+                  )
+                )
+              )
+            )
+          )
+        ):React.createElement("div",{className:"card",style:{display:"flex",alignItems:"center",justifyContent:"center",color:C.sub,fontSize:13,height:200}},"\u2190 Kunden auswählen")
+      ),
+
+      // ── SIMULATION ────────────────────────────────────────────────────────
+      tab==="simulation"&&React.createElement("div",{className:"fade"},
+        React.createElement("div",{className:"card",style:{marginBottom:12}},
+          React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:16}},"Szenario-Faktoren"),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}},
+            [["pess","Pessimistisch",C.red],["real","Realistisch",C.blue],["opt","Optimistisch",C.green]].map(([k,l,col])=>
+              React.createElement("div",{key:k,style:{background:C.bg,borderRadius:12,padding:"14px 16px",border:"1px solid "+col+"33"}},
+                React.createElement("div",{style:{fontSize:11,color:col,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em",marginBottom:10}},l),
+                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
+                  React.createElement("input",{type:"range",min:-50,max:100,value:scen[k],onChange:e=>setScen(p=>({...p,[k]:parseInt(e.target.value)})),style:{flex:1,accentColor:col}}),
+                  React.createElement("span",{style:{fontSize:17,color:col,fontWeight:700,minWidth:44,textAlign:"right"}},scen[k]>0?"+":"",scen[k],"%")
+                )
+              )
+            )
+          )
+        ),
+        React.createElement("div",{className:"card",style:{marginBottom:12}},
+          React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:14}},"Vergleich"),
+          React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12}},
+            React.createElement("thead",null,React.createElement("tr",null,
+              ["Jahr","Basis","Pessimistisch","Realistisch","Optimistisch"].map(h=>React.createElement("th",{key:h,style:{padding:"8px 12px",textAlign:h==="Jahr"?"left":"right",color:C.sub,fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em",borderBottom:"1px solid "+C.border}},h))
+            )),
+            React.createElement("tbody",null,
+              YEARS.map((y,i)=>{const b=yt(clients,y);return React.createElement("tr",{key:y,style:{background:i%2===0?C.bg:"transparent"}},
+                React.createElement("td",{style:{padding:"10px 12px",color:C.text,fontWeight:600}},y),
+                React.createElement("td",{style:{padding:"10px 12px",textAlign:"right",color:C.text}},fmt(b)),
+                React.createElement("td",{style:{padding:"10px 12px",textAlign:"right",color:C.red}},fmt(Math.round(b*(1+scen.pess/100)))),
+                React.createElement("td",{style:{padding:"10px 12px",textAlign:"right",color:C.blue}},fmt(Math.round(b*(1+scen.real/100)))),
+                React.createElement("td",{style:{padding:"10px 12px",textAlign:"right",color:C.green}},fmt(Math.round(b*(1+scen.opt/100))))
+              );}),
+              React.createElement("tr",{style:{borderTop:"1.5px solid "+C.border}},
+                React.createElement("td",{style:{padding:"10px 12px",color:C.text,fontWeight:700}},"Total"),
+                React.createElement("td",{style:{padding:"10px 12px",textAlign:"right",color:C.text,fontWeight:700}},fmt(totalG)),
+                ...["pess","real","opt"].map(k=>{const t=YEARS.reduce((s,y)=>s+Math.round(yt(clients,y)*(1+scen[k]/100)),0),col=k==="pess"?C.red:k==="opt"?C.green:C.blue;return React.createElement("td",{key:k,style:{padding:"10px 12px",textAlign:"right",color:col,fontWeight:700}},fmt(t));})
+              )
+            )
+          )
+        ),
+        React.createElement("div",{className:"card"},
+          React.createElement("div",{style:{fontSize:13,fontWeight:600,color:C.text,marginBottom:14}},"Chart"),
+          React.createElement(ResponsiveContainer,{width:"100%",height:230},
+            React.createElement(LineChart,{data:oData},
+              React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0",vertical:false}),
+              React.createElement(XAxis,{dataKey:"year",tick:{fill:C.sub,fontSize:11},axisLine:false,tickLine:false}),
+              React.createElement(YAxis,{tickFormatter:fmtK,tick:{fill:C.sub,fontSize:10},axisLine:false,tickLine:false,width:42}),
+              React.createElement(Tooltip,{content:React.createElement(CustomTooltip)}),
+              React.createElement(Line,{type:"monotone",dataKey:"Basis",stroke:C.blue,strokeWidth:2.5,dot:{r:4,fill:C.blue},name:"Basis"}),
+              React.createElement(Line,{type:"monotone",dataKey:"Pessimistisch",stroke:C.red,strokeWidth:1.5,strokeDasharray:"5 4",dot:false,name:"Pessimistisch"}),
+              React.createElement(Line,{type:"monotone",dataKey:"Optimistisch",stroke:C.green,strokeWidth:1.5,strokeDasharray:"5 4",dot:false,name:"Optimistisch"}),
+              React.createElement(Legend,{wrapperStyle:{fontSize:11,color:C.sub}})
+            )
+          )
+        )
+      ),
+
+      // ── DETAILS ───────────────────────────────────────────────────────────
+      tab==="details"&&React.createElement("div",{className:"fade"},
+        React.createElement("div",{className:"card",style:{padding:0,overflow:"hidden"}},
+          React.createElement("div",{style:{padding:"12px 18px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",gap:10}},
+            React.createElement("span",{style:{fontSize:13,fontWeight:600,color:C.text}},"Alle Kunden"),
+            React.createElement("div",{style:{display:"flex",gap:4,marginLeft:8}},
+              YEARS.map(y=>React.createElement("button",{key:y,onClick:()=>setSelYear(y),style:{padding:"4px 12px",background:selYear===y?C.blue:"transparent",border:selYear===y?"none":"1px solid "+C.border,color:selYear===y?"#fff":C.sub,borderRadius:16,fontSize:11,fontWeight:selYear===y?600:400,cursor:"pointer"}},y))
+            )
+          ),
+          React.createElement("div",{style:{overflowX:"auto"}},
+            React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12}},
+              React.createElement("thead",null,React.createElement("tr",{style:{background:C.bg}},
+                ["Kunde","Prob.","Schule","Verlag","Referent","Examen","Autor","Aufschalt","Ertrag"].map(h=>React.createElement("th",{key:h,style:{padding:"8px 12px",textAlign:h==="Kunde"?"left":"right",color:C.sub,fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em",borderBottom:"1px solid "+C.border}},h))
+              )),
+              React.createElement("tbody",null,
+                clients.map((c,ci)=>{
+                  const yr=c.years[selYear],rev=cy(c,selYear);
+                  return React.createElement("tr",{key:c.id,style:{background:ci%2===0?C.bg:"transparent",opacity:c.active?1:.45}},
+                    React.createElement("td",{style:{padding:"8px 12px",color:C.text,fontWeight:500,whiteSpace:"nowrap"}},
+                      React.createElement("span",{style:{display:"inline-block",width:6,height:6,borderRadius:"50%",background:aCol(c),marginRight:8,verticalAlign:"middle"}}),
+                      c.name
+                    ),
+                    React.createElement("td",{style:{padding:"8px 12px",textAlign:"right",color:C.sub}},Math.round(c.prob*100),"%"),
+                    ...FIELDS.map(({k})=>React.createElement("td",{key:k,style:{padding:"4px 6px",textAlign:"right"}},
+                      React.createElement("input",{type:"number",value:yr[k],onChange:e=>updY(c.id,selYear,k,e.target.value),
+                        style:{width:64,background:"transparent",border:"none",borderBottom:"1px solid "+(focusCell===`${c.id}-${selYear}-${k}`?C.blue:C.border+"66"),color:focusCell===`${c.id}-${selYear}-${k}`?C.blue:C.text,fontSize:12,textAlign:"right",padding:"2px 4px",outline:"none",fontFamily:"inherit"},
+                        onFocus:()=>setFocusCell(`${c.id}-${selYear}-${k}`),onBlur:()=>setFocusCell(null)})
+                    )),
+                    React.createElement("td",{style:{padding:"8px 12px",textAlign:"right",color:rev>0?C.green:C.sub,fontWeight:600}},fmt(rev))
+                  );
+                }),
+                React.createElement("tr",{style:{borderTop:"1.5px solid "+C.border,background:C.bg}},
+                  React.createElement("td",{colSpan:8,style:{padding:"10px 12px",color:C.text,fontWeight:700,fontSize:13}},"Total "+selYear),
+                  React.createElement("td",{style:{padding:"10px 12px",textAlign:"right",color:C.blue,fontWeight:700,fontSize:13}},fmt(yt(clients,selYear)))
+                )
+              )
+            )
+          )
+        )
+      )
+    ),
+
+    // Footer
+    React.createElement("div",{style:{textAlign:"center",padding:"20px",fontSize:11,color:C.sub}},
+      "Timeline Education AG · CHF exkl. MWST · Export/Import für Zusammenarbeit mit Thomas"
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>
