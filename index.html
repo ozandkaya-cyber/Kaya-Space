@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Timeline Education — Ertragsprognose</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+body{background:#f5f5f7;color:#1d1d1f;font-family:'Inter',system-ui,sans-serif;min-height:100vh;font-size:14px}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+input[type=range]{-webkit-appearance:none;height:3px;background:#d2d2d7;border-radius:2px;outline:none;cursor:pointer;width:100%}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#0071e3;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:#c7c7cc;border-radius:3px}
+.card{background:#fff;border-radius:16px;padding:20px 22px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.06)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.fade{animation:fadeIn .2s ease}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite;display:inline-block}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {useState,useEffect,useCallback}=React;
+const e=React.createElement;
+
+// ── Google Sheets Config ──────────────────────────────────────────────────────
+const SHEET_ID="1sSbNe0XKgRqJnCAeCjXqxFLOBPvarfjGwBP65KiIxDE";
+const API_KEY="AIzaSyBbT2qWyPkLGLG-tqnFPyhOdxoFfaTfsl4";
+const SHEET_NAME="Daten";
+const CELL="A1";
+const READ_URL=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!${CELL}?key=${API_KEY}`;
+const WRITE_URL=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!${CELL}?valueInputOption=RAW`;
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const YEARS=[2024,2025,2026,2027,2028];
+const ADMIN=1500;
+const FK=[{k:"s",l:"Schule"},{k:"v",l:"Verlag"},{k:"r",l:"Referent"},{k:"e",l:"Examen"},{k:"a",l:"Autor"},{k:"u",l:"Aufschalt"}];
+const BL="#0071e3",GR="#34c759",RD="#ff3b30",OR="#ff9500",SB="#6e6e73",BD="#e5e5ea",BG="#f5f5f7",TX="#1d1d1f";
+
+const DEF=[
+  {id:"hkv-aarau",name:"HKV Aarau",prob:1,active:true,color:"#0071e3",years:{2024:{s:1546,r:104,v:0,e:0,a:0,u:0},2025:{s:1748,r:94,v:0,e:0,a:0,u:0},2026:{s:1750,r:90,v:0,e:0,a:0,u:0},2027:{s:1750,r:90,v:0,e:0,a:0,u:0},2028:{s:1750,r:90,v:0,e:0,a:0,u:0}},prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"bzf",name:"BZF Fricktal",prob:1,active:true,color:"#5e5ce6",years:{2024:{s:154,r:10,v:0,e:0,a:0,u:0},2025:{s:197,r:10,v:0,e:0,a:0,u:0},2026:{s:220,r:15,v:0,e:0,a:0,u:0},2027:{s:200,r:15,v:0,e:0,a:0,u:0},2028:{s:200,r:15,v:0,e:0,a:0,u:0}},prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"fo-edu",name:"FO Education",prob:1,active:true,color:"#30d158",years:{2024:{s:0,r:0,v:444,e:0,a:7,u:0},2025:{s:0,r:0,v:480,e:0,a:12,u:1},2026:{s:0,r:0,v:350,e:0,a:18,u:1},2027:{s:0,r:0,v:550,e:0,a:20,u:1},2028:{s:0,r:0,v:550,e:0,a:20,u:1}},prices:{s:60,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"edupool",name:"KV edupool",prob:1,active:true,color:"#ff453a",years:{2024:{s:0,r:0,v:0,e:0,a:8,u:1},2025:{s:0,r:79,v:418,e:0,a:8,u:1},2026:{s:0,r:180,v:1881,e:700,a:8,u:1},2027:{s:0,r:0,v:2181,e:1000,a:150,u:0},2028:{s:0,r:0,v:2781,e:750,a:120,u:0}},prices:{s:150,r:100,v:60,e:65,a:150,u:1500}},
+  {id:"sib",name:"SIB",prob:0.7,active:true,color:"#ff9f0a",years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:5,v:0,e:0,a:0,u:0},2027:{s:20,r:5,v:0,e:0,a:0,u:0},2028:{s:50,r:5,v:0,e:0,a:0,u:0}},prices:{s:175,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"bsl",name:"BSL Lenzburg",prob:0.5,active:true,color:"#64d2ff",years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:0,e:0,a:0,u:0},2027:{s:0,r:0,v:0,e:0,a:0,u:0},2028:{s:0,r:0,v:0,e:0,a:0,u:0}},prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"hkv-swiss",name:"HKV Swiss",prob:1,active:true,color:"#bf5af2",years:{2024:{s:15,r:9,v:0,e:0,a:0,u:0},2025:{s:64,r:5,v:0,e:0,a:0,u:0},2026:{s:200,r:20,v:0,e:0,a:0,u:0},2027:{s:250,r:20,v:0,e:0,a:0,u:0},2028:{s:300,r:20,v:0,e:0,a:0,u:0}},prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"edupool-sbb",name:"edupool SBB",prob:1,active:true,color:"#ff2d55",years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:350,r:0,v:0,e:0,a:0,u:0},2026:{s:350,r:0,v:0,e:0,a:0,u:0},2027:{s:350,r:0,v:0,e:0,a:0,u:0},2028:{s:350,r:0,v:0,e:0,a:0,u:0}},prices:{s:60,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"kv-basel",name:"KV Basel",prob:1,active:true,color:"#32ade6",years:{2024:{s:1,r:0,v:0,e:0,a:0,u:0},2025:{s:1,r:0,v:0,e:0,a:0,u:0},2026:{s:1,r:0,v:0,e:0,a:0,u:0},2027:{s:1,r:0,v:0,e:0,a:0,u:0},2028:{s:1,r:0,v:0,e:0,a:0,u:0}},prices:{s:10000,r:100,v:60,e:65,a:150,u:1500}},
+  {id:"swiss-acc",name:"Swiss Acc.",prob:1,active:true,color:"#0071e3",years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:100,e:0,a:0,u:0},2027:{s:100,r:0,v:0,e:0,a:0,u:0},2028:{s:100,r:0,v:0,e:0,a:0,u:0}},prices:{s:175,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"liebegg",name:"Liebegg",prob:1,active:true,color:"#34c759",years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:40,r:10,v:0,e:0,a:0,u:1},2027:{s:100,r:0,v:0,e:0,a:0,u:0},2028:{s:200,r:0,v:0,e:0,a:0,u:0}},prices:{s:135,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"iffp",name:"IfFP",prob:0.7,active:true,color:"#ac8e68",years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:0,e:0,a:0,u:0},2027:{s:0,r:0,v:0,e:0,a:0,u:0},2028:{s:0,r:0,v:0,e:0,a:0,u:0}},prices:{s:150,r:200,v:60,e:65,a:150,u:1500}},
+  {id:"k13",name:"Kunde 13",prob:0,active:false,color:"#8e8e93",years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:0,e:0,a:0,u:0},2027:{s:0,r:0,v:0,e:0,a:0,u:0},2028:{s:0,r:0,v:0,e:0,a:0,u:0}},prices:{s:175,r:100,v:80,e:65,a:150,u:1500}},
+  {id:"k14",name:"Kunde 14",prob:0,active:false,color:"#8e8e93",years:{2024:{s:0,r:0,v:0,e:0,a:0,u:0},2025:{s:0,r:0,v:0,e:0,a:0,u:0},2026:{s:0,r:0,v:0,e:0,a:0,u:0},2027:{s:0,r:0,v:0,e:0,a:0,u:0},2028:{s:0,r:0,v:0,e:0,a:0,u:0}},prices:{s:175,r:100,v:80,e:65,a:150,u:1500}},
+];
+
+function cy(c,y){const d=c.years[y],p=c.prices,r=d.s*p.s+d.r*p.r+d.v*p.v+d.e*p.e+d.a*p.a+d.u*p.u;return r+(r>0?ADMIN:0);}
+function yt(cl,y){return cl.filter(c=>c.active).reduce((s,c)=>s+cy(c,y),0);}
+function ct(c){return YEARS.reduce((s,y)=>s+cy(c,y),0);}
+function fmt(n){return new Intl.NumberFormat("de-CH",{style:"currency",currency:"CHF",maximumFractionDigits:0}).format(n);}
+function fmtK(n){return n>=1e6?(n/1e6).toFixed(1)+"M":n>=1000?(n/1000).toFixed(0)+"k":String(n);}
+function aCol(c){if(!c.active)return"#c7c7cc";const t=ct(c);if(t===0)return"#ff3b30";if(c.prob<0.5)return"#ff9500";if(t<20000)return"#ffcc00";return"#34c759";}
+
+// ── SVG Charts ────────────────────────────────────────────────────────────────
+function BarChart({data,color,h=160}){
+  const W=500,H=h,P={t:10,r:10,b:28,l:52};
+  const max=Math.max(...data.map(d=>d.v),1);
+  const bw=(W-P.l-P.r)/data.length*0.55;
+  const gap=(W-P.l-P.r)/data.length;
+  const ticks=4;
+  return e("svg",{viewBox:`0 0 ${W} ${H}`,style:{width:"100%",height:H,overflow:"visible"}},
+    Array.from({length:ticks+1},(_,i)=>{
+      const v=max*i/ticks,y=P.t+(H-P.t-P.b)*(1-v/max);
+      return e("g",{key:i},e("line",{x1:P.l,x2:W-P.r,y1:y,y2:y,stroke:"#f0f0f0",strokeWidth:1}),e("text",{x:P.l-6,y:y+4,textAnchor:"end",fontSize:9,fill:SB},fmtK(v)));
+    }),
+    data.map((d,i)=>{
+      const x=P.l+i*gap+gap/2-bw/2,bh=(H-P.t-P.b)*(d.v/max),y=P.t+(H-P.t-P.b)-bh;
+      return e("g",{key:i},e("rect",{x,y,width:bw,height:Math.max(bh,0),fill:color||BL,rx:4}),e("text",{x:x+bw/2,y:H-P.b+14,textAnchor:"middle",fontSize:9,fill:SB},d.l));
+    })
+  );
+}
+
+function LineChart({series,labels,h=180}){
+  const W=500,H=h,P={t:10,r:10,b:36,l:52};
+  const max=Math.max(...series.flatMap(s=>s.data),1);
+  const xs=i=>P.l+i*(W-P.l-P.r)/(labels.length-1);
+  const ys=v=>P.t+(H-P.t-P.b)*(1-v/max);
+  return e("svg",{viewBox:`0 0 ${W} ${H}`,style:{width:"100%",height:H,overflow:"visible"}},
+    Array.from({length:5},(_,i)=>{
+      const v=max*i/4,y=ys(v);
+      return e("g",{key:i},e("line",{x1:P.l,x2:W-P.r,y1:y,y2:y,stroke:"#f0f0f0",strokeWidth:1}),e("text",{x:P.l-6,y:y+4,textAnchor:"end",fontSize:9,fill:SB},fmtK(v)));
+    }),
+    labels.map((l,i)=>e("text",{key:i,x:xs(i),y:H-P.b+14,textAnchor:"middle",fontSize:9,fill:SB},l)),
+    series.map(s=>e("g",{key:s.name},
+      e("polyline",{points:s.data.map((v,i)=>`${xs(i)},${ys(v)}`).join(" "),fill:"none",stroke:s.color,strokeWidth:s.width||2,strokeDasharray:s.dash||"none"}),
+      s.dots!==false&&s.data.map((v,i)=>e("circle",{key:i,cx:xs(i),cy:ys(v),r:3,fill:s.color}))
+    )),
+    series.map((s,i)=>e("g",{key:i,transform:`translate(${P.l+i*120},${H-6})`},
+      e("line",{x1:0,x2:14,y1:0,y2:0,stroke:s.color,strokeWidth:2,strokeDasharray:s.dash||"none"}),
+      e("text",{x:18,y:4,fontSize:9,fill:SB},s.name)
+    ))
+  );
+}
+
+const tS=a=>({padding:"7px 16px",background:a?"#fff":"transparent",border:"none",color:a?BL:SB,fontWeight:a?600:400,borderRadius:20,fontSize:13,cursor:"pointer",boxShadow:a?"0 1px 4px rgba(0,0,0,.1)":"none",transition:"all .15s"});
+const bp=(bg,col,bdr)=>({padding:"7px 16px",background:bg,border:bdr||"none",color:col||"#fff",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",transition:"opacity .15s"});
+const inpS={background:"transparent",border:"none",borderBottom:"1.5px solid "+BD,color:BL,fontSize:13,textAlign:"right",padding:"3px 2px",outline:"none",fontFamily:"inherit",width:64};
+
+function App(){
+  const [cl,setCl]=useState(DEF);
+  const [tab,setTab]=useState("overview");
+  const [sid,setSid]=useState(null);
+  const [sc,setSc]=useState({pess:-15,real:0,opt:20});
+  const [sy,setSy]=useState(2025);
+  const [fc,setFc]=useState(null);
+  const [note,setNote]=useState(null);
+  const [gsState,setGsState]=useState("idle"); // idle|loading|saving|ok|err
+  const [lastSaved,setLastSaved]=useState(null);
+  const [authToken,setAuthToken]=useState(null);
+
+  const selC=cl.find(c=>c.id===sid)||null;
+  function toast(msg,ok=true){setNote({msg,ok});setTimeout(()=>setNote(null),3500);}
+
+  function uY(id,y,f,v){setCl(p=>p.map(c=>c.id===id?{...c,years:{...c.years,[y]:{...c.years[y],[f]:parseFloat(v)||0}}}:c));}
+  function uP(id,f,v){setCl(p=>p.map(c=>c.id===id?{...c,prices:{...c.prices,[f]:parseFloat(v)||0}}:c));}
+  function uPr(id,f,v){setCl(p=>p.map(c=>c.id===id?{...c,[f]:v}:c));}
+
+  // ── Google Sheets: Laden ──────────────────────────────────────────────────
+  async function loadFromSheets(){
+    setGsState("loading");
+    try{
+      const res=await fetch(READ_URL);
+      if(!res.ok)throw new Error("HTTP "+res.status);
+      const json=await res.json();
+      const raw=json.values&&json.values[0]&&json.values[0][0];
+      if(!raw)throw new Error("Sheet ist leer — noch keine Daten gespeichert.");
+      const d=JSON.parse(raw);
+      if(d.cl)setCl(d.cl);
+      if(d.sc)setSc(d.sc);
+      if(d.savedAt)setLastSaved(d.savedAt);
+      setGsState("ok");
+      toast("Geladen ✓  Stand: "+new Date(d.savedAt).toLocaleString("de-CH"));
+      setTimeout(()=>setGsState("idle"),3000);
+    }catch(ex){
+      setGsState("err");
+      toast("Laden fehlgeschlagen: "+ex.message,false);
+      setTimeout(()=>setGsState("idle"),4000);
+    }
+  }
+
+  // ── Google Sheets: Speichern (braucht OAuth Token) ────────────────────────
+  async function saveToSheets(){
+    if(!authToken){
+      toast("Für das Speichern: unten auf 'Mit Google anmelden' klicken",false);
+      return;
+    }
+    setGsState("saving");
+    const payload={v:1,savedAt:new Date().toISOString(),cl,sc};
+    try{
+      const res=await fetch(WRITE_URL,{
+        method:"PUT",
+        headers:{"Authorization":"Bearer "+authToken,"Content-Type":"application/json"},
+        body:JSON.stringify({values:[[JSON.stringify(payload)]]})
+      });
+      if(!res.ok)throw new Error("HTTP "+res.status);
+      setLastSaved(payload.savedAt);
+      setGsState("ok");
+      toast("Gespeichert ✓");
+      setTimeout(()=>setGsState("idle"),3000);
+    }catch(ex){
+      setGsState("err");
+      toast("Speichern fehlgeschlagen: "+ex.message,false);
+      setTimeout(()=>setGsState("idle"),4000);
+    }
+  }
+
+  // ── Google OAuth ──────────────────────────────────────────────────────────
+  function googleSignIn(){
+    const CLIENT_ID="194738223907-1afpe4qu8ts4td3ed5o6uantq21grthk.apps.googleusercontent.com";
+    const SCOPE="https://www.googleapis.com/auth/spreadsheets";
+    const REDIRECT=encodeURIComponent(window.location.href.split("?")[0]);
+    const url=`https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT}&response_type=token&scope=${SCOPE}&prompt=consent`;
+    window.location.href=url;
+  }
+
+  // Check for token in URL hash (OAuth redirect)
+  useEffect(()=>{
+    const hash=window.location.hash;
+    if(hash.includes("access_token")){
+      const params=new URLSearchParams(hash.replace("#",""));
+      const token=params.get("access_token");
+      if(token){setAuthToken(token);toast("Angemeldet ✓");}
+      window.history.replaceState(null,"",window.location.pathname);
+    }
+    // Auto-load on startup
+    loadFromSheets();
+  },[]);
+
+  const tG=YEARS.reduce((s,y)=>s+yt(cl,y),0);
+  const tW=cl.filter(c=>c.active).reduce((s,c)=>s+ct(c)*c.prob,0);
+  const cagr=yt(cl,2025)>0?((yt(cl,2028)/yt(cl,2025))**(1/3)-1)*100:0;
+  const TABS=[["overview","Übersicht"],["kunden","Kunden"],["simulation","Simulation"],["details","Detaileingabe"]];
+
+  const gsIcon=gsState==="loading"||gsState==="saving"?e("span",{className:"spin"},"↻"):gsState==="ok"?"✓":gsState==="err"?"✗":"☁";
+  const gsLabel=gsState==="loading"?"Lädt…":gsState==="saving"?"Speichert…":gsState==="ok"?"Synced":gsState==="err"?"Fehler":"Laden";
+  const gsBg=gsState==="ok"?GR:gsState==="err"?RD:"transparent";
+  const gsCol=gsState==="ok"||gsState==="err"?"#fff":SB;
+
+  return e("div",{style:{minHeight:"100vh",background:BG}},
+
+    // Toast
+    note&&e("div",{style:{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",zIndex:2000,background:note.ok?GR:RD,color:"#fff",padding:"10px 22px",borderRadius:20,fontSize:13,fontWeight:500,boxShadow:"0 4px 20px rgba(0,0,0,.15)",whiteSpace:"nowrap",maxWidth:"80vw"}},note.msg),
+
+    // Navbar
+    e("div",{style:{background:"rgba(255,255,255,.9)",backdropFilter:"blur(20px)",borderBottom:"1px solid "+BD,position:"sticky",top:0,zIndex:100}},
+      e("div",{style:{maxWidth:1200,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",height:52,gap:0}},
+        e("div",{style:{marginRight:24}},
+          e("div",{style:{fontSize:10,color:BL,fontWeight:600,letterSpacing:".06em",textTransform:"uppercase"}},"● Timeline Education"),
+          e("div",{style:{fontSize:14,fontWeight:600,color:TX,letterSpacing:"-.02em"}},"Ertragsprognose 2024–2028")
+        ),
+        e("div",{style:{display:"flex",gap:2,flex:1,background:BG,borderRadius:22,padding:3,border:"1px solid "+BD}},
+          TABS.map(([k,l])=>e("button",{key:k,style:tS(tab===k),onClick:()=>setTab(k)},l))
+        ),
+        e("div",{style:{display:"flex",gap:6,marginLeft:16,alignItems:"center"}},
+          lastSaved&&e("span",{style:{fontSize:10,color:SB,whiteSpace:"nowrap"}},"Stand: "+new Date(lastSaved).toLocaleString("de-CH",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})),
+          e("button",{style:{...bp(gsBg,gsCol,"1px solid "+(gsState==="idle"?BD:"transparent")),minWidth:90},onClick:loadFromSheets,disabled:gsState==="loading"||gsState==="saving"},gsIcon," ",gsLabel),
+          authToken
+            ?e("button",{style:bp(BL),onClick:saveToSheets,disabled:gsState==="saving"},"💾 Speichern")
+            :e("button",{style:bp("#4285F4"),onClick:googleSignIn},"G Anmelden & Speichern")
+        )
+      )
+    ),
+
+    // Google Sign-In Hinweis (wenn nicht angemeldet)
+    !authToken&&e("div",{style:{background:"#fff8e7",borderBottom:"1px solid #f5d174",padding:"10px 24px",display:"flex",alignItems:"center",gap:12}},
+      e("span",{style:{fontSize:13,color:"#92400e"}},"💡 Zum Laden: Klick auf 'Laden'. Zum Speichern: mit Google anmelden (oben rechts). Thomas kann dann denselben Stand laden."),
+    ),
+
+    e("div",{style:{maxWidth:1200,margin:"0 auto",padding:"20px"}},
+
+    // ── OVERVIEW ──
+    tab==="overview"&&e("div",{className:"fade"},
+      e("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}},
+        [[`Total brutto 5J`,fmt(tG),"2024–2028 kumuliert",BL],[`Gewichtet`,fmt(tW),"Nach Wahrscheinlichkeit",GR],[`CAGR 25–28`,cagr.toFixed(1)+"%","Jährl. Wachstum",cagr>10?GR:OR],[`Aktive Kunden`,cl.filter(c=>c.active).length,"von "+cl.length+" total",BL]].map(([l,v,s,col],i)=>
+          e("div",{key:i,className:"card"},
+            e("div",{style:{fontSize:10,color:SB,fontWeight:500,textTransform:"uppercase",letterSpacing:".04em",marginBottom:6}},l),
+            e("div",{style:{fontSize:24,fontWeight:600,color:col,letterSpacing:"-.02em",lineHeight:1.1}},v),
+            e("div",{style:{fontSize:11,color:SB,marginTop:3}},s)
+          )
+        )
+      ),
+      e("div",{style:{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:10}},
+        e("div",{className:"card"},
+          e("div",{style:{fontSize:13,fontWeight:600,marginBottom:14}},"Ertragsentwicklung"),
+          e(LineChart,{h:190,labels:YEARS.map(String),series:[
+            {name:"Basis",color:BL,width:2.5,data:YEARS.map(y=>yt(cl,y))},
+            {name:"Pessimistisch",color:RD,width:1.5,dash:"4,3",dots:false,data:YEARS.map(y=>Math.round(yt(cl,y)*(1+sc.pess/100)))},
+            {name:"Optimistisch",color:GR,width:1.5,dash:"4,3",dots:false,data:YEARS.map(y=>Math.round(yt(cl,y)*(1+sc.opt/100)))}
+          ]})
+        ),
+        e("div",{className:"card"},
+          e("div",{style:{fontSize:13,fontWeight:600,marginBottom:14}},"Je Jahr"),
+          e(BarChart,{h:190,color:BL,data:YEARS.map(y=>({l:String(y),v:yt(cl,y)}))})
+        )
+      ),
+      e("div",{className:"card"},
+        e("div",{style:{fontSize:13,fontWeight:600,marginBottom:14}},"Kunden — klicken für Details"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(138px,1fr))",gap:8}},
+          cl.map(c=>{const col=aCol(c),tot=ct(c);return e("div",{key:c.id,
+            onClick:()=>{setSid(c.id);setTab("kunden");},
+            style:{background:BG,border:"1.5px solid "+col+"33",borderRadius:12,padding:"11px 13px",cursor:"pointer",opacity:c.active?1:.45,transition:"all .15s"},
+            onMouseEnter:ev=>{ev.currentTarget.style.borderColor=col;ev.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.08)";},
+            onMouseLeave:ev=>{ev.currentTarget.style.borderColor=col+"33";ev.currentTarget.style.boxShadow="none";}},
+            e("div",{style:{display:"flex",alignItems:"center",gap:5,marginBottom:5}},
+              e("div",{style:{width:7,height:7,borderRadius:"50%",background:col,flexShrink:0}}),
+              e("div",{style:{fontSize:11,color:TX,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},c.name)
+            ),
+            e("div",{style:{fontSize:15,color:TX,fontWeight:600}},fmtK(tot)),
+            e("div",{style:{fontSize:10,color:SB,marginTop:2}},Math.round(c.prob*100)+"% · 5J")
+          );})
+        )
+      )
+    ),
+
+    // ── KUNDEN ──
+    tab==="kunden"&&e("div",{className:"fade",style:{display:"grid",gridTemplateColumns:"195px 1fr",gap:14}},
+      e("div",{className:"card",style:{padding:0,overflow:"hidden",alignSelf:"start"}},
+        e("div",{style:{padding:"10px 14px",borderBottom:"1px solid "+BD,fontSize:10,color:SB,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em"}},"Kunden"),
+        cl.map(c=>{const sel=c.id===sid,col=aCol(c);return e("div",{key:c.id,onClick:()=>setSid(c.id),
+          style:{padding:"9px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:7,background:sel?"#f0f7ff":"transparent",borderLeft:sel?"3px solid "+BL:"3px solid transparent",opacity:c.active?1:.45,transition:"all .1s"}},
+          e("div",{style:{width:6,height:6,borderRadius:"50%",background:col,flexShrink:0}}),
+          e("div",{style:{fontSize:12,color:sel?BL:TX,fontWeight:sel?600:400,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},c.name),
+          e("div",{style:{fontSize:10,color:SB}},fmtK(ct(c)))
+        );})
+      ),
+      selC?e("div",{style:{display:"flex",flexDirection:"column",gap:10}},
+        e("div",{className:"card",style:{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
+          e("div",{style:{width:11,height:11,borderRadius:"50%",background:aCol(selC)}}),
+          e("div",null,
+            e("div",{style:{fontSize:18,fontWeight:600,letterSpacing:"-.02em"}},selC.name),
+            e("div",{style:{fontSize:11,color:SB,marginTop:2}},"5J: ",e("b",{style:{color:TX}},fmt(ct(selC))),"  ·  gewichtet: ",e("b",{style:{color:GR}},fmt(ct(selC)*selC.prob)))
+          ),
+          e("div",{style:{marginLeft:"auto",display:"flex",gap:18,alignItems:"center"}},
+            e("label",{style:{fontSize:11,color:SB,display:"flex",flexDirection:"column",gap:4,userSelect:"none"}},
+              e("span",null,"Wahrscheinlichkeit — ",e("span",{style:{color:BL,fontWeight:600}},Math.round(selC.prob*100),"%")),
+              e("input",{type:"range",min:0,max:100,value:Math.round(selC.prob*100),onChange:ev=>uPr(selC.id,"prob",parseFloat(ev.target.value)/100),style:{width:110}})
+            ),
+            e("label",{style:{fontSize:12,color:SB,display:"flex",alignItems:"center",gap:6,cursor:"pointer",userSelect:"none"}},
+              e("input",{type:"checkbox",checked:selC.active,onChange:ev=>uPr(selC.id,"active",ev.target.checked),style:{accentColor:BL,width:14,height:14}}),
+              "Aktiv"
+            )
+          )
+        ),
+        e("div",{className:"card"},
+          e("div",{style:{fontSize:13,fontWeight:600,marginBottom:12}},"Ertragsverlauf"),
+          e(BarChart,{h:140,color:selC.color||BL,data:YEARS.map(y=>({l:String(y),v:cy(selC,y)}))})
+        ),
+        e("div",{className:"card"},
+          e("div",{style:{fontSize:13,fontWeight:600,marginBottom:12}},"Preise CHF / Einheit"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}},
+            FK.map(({k,l})=>e("div",{key:k,style:{background:BG,borderRadius:10,padding:"9px 11px"}},
+              e("div",{style:{fontSize:10,color:SB,textTransform:"uppercase",letterSpacing:".04em",marginBottom:3}},l),
+              e("input",{type:"number",value:selC.prices[k],onChange:ev=>uP(selC.id,k,ev.target.value),style:{...inpS,width:"100%",fontSize:15,fontWeight:600,color:TX}})
+            ))
+          )
+        ),
+        e("div",{className:"card"},
+          e("div",{style:{fontSize:13,fontWeight:600,marginBottom:12}},"Mengen je Jahr"),
+          e("div",{style:{overflowX:"auto"}},
+            e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12}},
+              e("thead",null,e("tr",null,["Kat.",...YEARS.map(String)].map(h=>e("th",{key:h,style:{padding:"6px 10px",textAlign:h==="Kat."?"left":"right",color:SB,fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em",borderBottom:"1px solid "+BD}},h)))),
+              e("tbody",null,
+                FK.map(({k,l},fi)=>e("tr",{key:k,style:{background:fi%2===0?BG:"transparent"}},
+                  e("td",{style:{padding:"6px 10px",color:SB}},l),
+                  YEARS.map(y=>e("td",{key:y,style:{padding:"3px 6px",textAlign:"right"}},
+                    e("input",{type:"number",value:selC.years[y][k],onChange:ev=>uY(selC.id,y,k,ev.target.value),
+                      style:{...inpS,borderBottomColor:fc===`${selC.id}-${y}-${k}`?BL:BD},
+                      onFocus:()=>setFc(`${selC.id}-${y}-${k}`),onBlur:()=>setFc(null)})
+                  ))
+                )),
+                e("tr",{style:{borderTop:"1px solid "+BD}},
+                  e("td",{style:{padding:"8px 10px",color:TX,fontWeight:600}},"Ertrag"),
+                  YEARS.map(y=>e("td",{key:y,style:{padding:"8px 10px",textAlign:"right",color:GR,fontWeight:600,fontSize:13}},fmt(cy(selC,y))))
+                )
+              )
+            )
+          )
+        )
+      ):e("div",{className:"card",style:{display:"flex",alignItems:"center",justifyContent:"center",color:SB,fontSize:13,height:200}},"← Kunden auswählen")
+    ),
+
+    // ── SIMULATION ──
+    tab==="simulation"&&e("div",{className:"fade"},
+      e("div",{className:"card",style:{marginBottom:10}},
+        e("div",{style:{fontSize:13,fontWeight:600,marginBottom:14}},"Szenario-Faktoren"),
+        e("div",{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}},
+          [["pess","Pessimistisch",RD],["real","Realistisch",BL],["opt","Optimistisch",GR]].map(([k,l,col])=>
+            e("div",{key:k,style:{background:BG,borderRadius:12,padding:"14px 16px",border:"1px solid "+col+"25"}},
+              e("div",{style:{fontSize:11,color:col,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em",marginBottom:10}},l),
+              e("div",{style:{display:"flex",alignItems:"center",gap:10}},
+                e("input",{type:"range",min:-50,max:100,value:sc[k],onChange:ev=>setSc(p=>({...p,[k]:parseInt(ev.target.value)})),style:{flex:1,accentColor:col}}),
+                e("span",{style:{fontSize:16,color:col,fontWeight:700,minWidth:40,textAlign:"right"}},sc[k]>0?"+":"",sc[k],"%")
+              )
+            )
+          )
+        )
+      ),
+      e("div",{className:"card",style:{marginBottom:10}},
+        e("div",{style:{fontSize:13,fontWeight:600,marginBottom:12}},"Vergleich"),
+        e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12}},
+          e("thead",null,e("tr",null,["Jahr","Basis","Pessimistisch","Realistisch","Optimistisch"].map(h=>e("th",{key:h,style:{padding:"7px 12px",textAlign:h==="Jahr"?"left":"right",color:SB,fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em",borderBottom:"1px solid "+BD}},h)))),
+          e("tbody",null,
+            YEARS.map((y,i)=>{const b=yt(cl,y);return e("tr",{key:y,style:{background:i%2===0?BG:"transparent"}},
+              e("td",{style:{padding:"9px 12px",color:TX,fontWeight:600}},y),
+              e("td",{style:{padding:"9px 12px",textAlign:"right",color:TX}},fmt(b)),
+              e("td",{style:{padding:"9px 12px",textAlign:"right",color:RD}},fmt(Math.round(b*(1+sc.pess/100)))),
+              e("td",{style:{padding:"9px 12px",textAlign:"right",color:BL}},fmt(Math.round(b*(1+sc.real/100)))),
+              e("td",{style:{padding:"9px 12px",textAlign:"right",color:GR}},fmt(Math.round(b*(1+sc.opt/100))))
+            );}),
+            e("tr",{style:{borderTop:"1.5px solid "+BD}},
+              e("td",{style:{padding:"9px 12px",color:TX,fontWeight:700}},"Total"),
+              e("td",{style:{padding:"9px 12px",textAlign:"right",color:TX,fontWeight:700}},fmt(tG)),
+              ...["pess","real","opt"].map(k=>{const t=YEARS.reduce((s,y)=>s+Math.round(yt(cl,y)*(1+sc[k]/100)),0),col=k==="pess"?RD:k==="opt"?GR:BL;return e("td",{key:k,style:{padding:"9px 12px",textAlign:"right",color:col,fontWeight:700}},fmt(t));})
+            )
+          )
+        )
+      ),
+      e("div",{className:"card"},
+        e("div",{style:{fontSize:13,fontWeight:600,marginBottom:6}},"Szenario-Chart"),
+        e(LineChart,{h:200,labels:YEARS.map(String),series:[
+          {name:"Basis",color:BL,width:2.5,data:YEARS.map(y=>yt(cl,y))},
+          {name:"Pessimistisch",color:RD,width:1.5,dash:"4,3",dots:false,data:YEARS.map(y=>Math.round(yt(cl,y)*(1+sc.pess/100)))},
+          {name:"Optimistisch",color:GR,width:1.5,dash:"4,3",dots:false,data:YEARS.map(y=>Math.round(yt(cl,y)*(1+sc.opt/100)))}
+        ]})
+      )
+    ),
+
+    // ── DETAILS ──
+    tab==="details"&&e("div",{className:"fade"},
+      e("div",{className:"card",style:{padding:0,overflow:"hidden"}},
+        e("div",{style:{padding:"11px 16px",borderBottom:"1px solid "+BD,display:"flex",alignItems:"center",gap:10}},
+          e("span",{style:{fontSize:13,fontWeight:600}},"Alle Kunden"),
+          e("div",{style:{display:"flex",gap:4,marginLeft:8}},
+            YEARS.map(y=>e("button",{key:y,onClick:()=>setSy(y),style:{padding:"3px 12px",background:sy===y?BL:"transparent",border:sy===y?"none":"1px solid "+BD,color:sy===y?"#fff":SB,borderRadius:16,fontSize:11,fontWeight:sy===y?600:400,cursor:"pointer"}},y))
+          )
+        ),
+        e("div",{style:{overflowX:"auto"}},
+          e("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12}},
+            e("thead",null,e("tr",{style:{background:BG}},
+              ["Kunde","Prob.","Schule","Verlag","Referent","Examen","Autor","Aufschalt","Ertrag"].map(h=>e("th",{key:h,style:{padding:"7px 12px",textAlign:h==="Kunde"?"left":"right",color:SB,fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em",borderBottom:"1px solid "+BD}},h))
+            )),
+            e("tbody",null,
+              cl.map((c,ci)=>{const yr=c.years[sy],rev=cy(c,sy);return e("tr",{key:c.id,style:{background:ci%2===0?BG:"transparent",opacity:c.active?1:.4}},
+                e("td",{style:{padding:"7px 12px",color:TX,fontWeight:500,whiteSpace:"nowrap"}},
+                  e("span",{style:{display:"inline-block",width:6,height:6,borderRadius:"50%",background:aCol(c),marginRight:8,verticalAlign:"middle"}}),c.name
+                ),
+                e("td",{style:{padding:"7px 12px",textAlign:"right",color:SB}},Math.round(c.prob*100),"%"),
+                ...FK.map(({k})=>e("td",{key:k,style:{padding:"3px 5px",textAlign:"right"}},
+                  e("input",{type:"number",value:yr[k],onChange:ev=>uY(c.id,sy,k,ev.target.value),
+                    style:{width:64,background:"transparent",border:"none",borderBottom:"1px solid "+(fc===`${c.id}-${sy}-${k}`?BL:BD+"88"),color:fc===`${c.id}-${sy}-${k}`?BL:TX,fontSize:12,textAlign:"right",padding:"2px 4px",outline:"none",fontFamily:"inherit"},
+                    onFocus:()=>setFc(`${c.id}-${sy}-${k}`),onBlur:()=>setFc(null)})
+                )),
+                e("td",{style:{padding:"7px 12px",textAlign:"right",color:rev>0?GR:SB,fontWeight:600}},fmt(rev))
+              );}),
+              e("tr",{style:{borderTop:"1.5px solid "+BD,background:BG}},
+                e("td",{colSpan:8,style:{padding:"9px 12px",color:TX,fontWeight:700,fontSize:13}},"Total "+sy),
+                e("td",{style:{padding:"9px 12px",textAlign:"right",color:BL,fontWeight:700,fontSize:13}},fmt(yt(cl,sy)))
+              )
+            )
+          )
+        )
+      )
+    )
+    ),
+    e("div",{style:{textAlign:"center",padding:"16px",fontSize:11,color:"#c7c7cc"}},"Timeline Education AG · Laden: kostenlos · Speichern: Google-Anmeldung nötig")
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(e(App));
+</script>
+</body>
+</html>
