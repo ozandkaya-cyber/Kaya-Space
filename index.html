@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Timeline Education — Ertragsprognose</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+body{background:#f0f2f5;color:#1a1a2e;font-family:'Inter',system-ui,sans-serif;min-height:100vh;font-size:14px}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer;transition:all .15s}
+input[type=range]{-webkit-appearance:none;height:4px;background:#e0e0e6;border-radius:2px;outline:none;cursor:pointer;width:100%}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#0071e3;cursor:pointer;box-shadow:0 2px 6px rgba(0,113,227,.4)}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+input[type=number]{-moz-appearance:textfield}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:#c7c7cc;border-radius:3px}
+.card{background:#fff;border-radius:20px;padding:24px 28px;box-shadow:0 2px 14px rgba(0,0,0,.07),0 0 0 1px rgba(0,0,0,.04)}
+.card-xs{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 1px 6px rgba(0,0,0,.06),0 0 0 1px rgba(0,0,0,.03)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fade{animation:fadeIn .2s ease}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .8s linear infinite;display:inline-block}
+.inp{background:transparent;border:none;border-bottom:2px solid #e5e5ea;padding:5px 2px;outline:none;width:100%;transition:border-color .15s;font-size:14px}
+.inp:focus{border-bottom-color:#0071e3}
+.inp-sm{background:transparent;border:none;border-bottom:1.5px solid #e5e5ea;padding:3px 2px;outline:none;font-size:13px;text-align:right;transition:border-color .15s}
+.inp-sm:focus{border-bottom-color:#0071e3}
+.tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;gap:4px}
+.btn-ghost{background:transparent;border:1.5px solid #e5e5ea;color:#6e6e73;border-radius:20px;padding:7px 16px;font-size:13px;font-weight:500}
+.btn-ghost:hover{border-color:#0071e3;color:#0071e3}
+.btn-primary{background:#0071e3;border:none;color:#fff;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:500}
+.btn-primary:hover{background:#005bb5}
+.btn-danger{background:transparent;border:1.5px solid #ff3b3044;color:#ff3b30;border-radius:16px;padding:5px 12px;font-size:12px}
+.btn-danger:hover{background:#ff3b30;color:#fff}
+.btn-success{background:#34c759;border:none;color:#fff;border-radius:20px;padding:8px 18px;font-size:13px;font-weight:500}
+.tab-btn{background:transparent;border:none;padding:9px 18px;border-radius:20px;font-size:13px;cursor:pointer;font-weight:400;color:#6e6e73;transition:all .15s}
+.tab-btn.active{background:#fff;color:#0071e3;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.yr-btn{padding:8px 20px;border-radius:20px;font-size:13px;cursor:pointer;font-weight:400;border:1.5px solid #e5e5ea;background:#fff;color:#6e6e73;transition:all .15s}
+.yr-btn.active{background:#0071e3;color:#fff;border-color:transparent;font-weight:600;box-shadow:0 4px 14px rgba(0,113,227,.3)}
+.yr-btn-add{padding:8px 16px;border-radius:20px;font-size:13px;cursor:pointer;border:2px dashed #d2d2d7;background:transparent;color:#8e8e93;transition:all .15s}
+.yr-btn-add:hover{border-color:#0071e3;color:#0071e3}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8e8e93;border-bottom:2px solid #f0f0f5}
+th:first-child{text-align:left}
+td{padding:9px 12px;text-align:right;font-size:13px;border-bottom:1px solid #f5f5f8}
+td:first-child{text-align:left}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafe}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.modal{background:#fff;border-radius:22px;padding:28px;width:540px;max-width:94vw;box-shadow:0 20px 60px rgba(0,0,0,.22)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {useState,useEffect,useRef}=React;
+const ce=React.createElement;
+
+// ── Google Sheets ─────────────────────────────────────────────────────────────
+const SHEET_ID="1sSbNe0XKgRqJnCAeCjXqxFLOBPvarfjGwBP65KiIxDE";
+const API_KEY="AIzaSyBbT2qWyPkLGLG-tqnFPyhOdxoFfaTfsl4";
+const CLIENT_ID="194738223907-1afpe4qu8ts4td3ed5o6uantq21grthk.apps.googleusercontent.com";
+const READ_URL=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Daten!A1?key=${API_KEY}`;
+const WRITE_URL=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Daten!A1?valueInputOption=RAW`;
+
+// ── Colors ────────────────────────────────────────────────────────────────────
+const BL="#0071e3",GR="#34c759",RD="#ff3b30",OR="#ff9500",SB="#6e6e73",BD="#e5e5ea",BG="#f0f2f5",TX="#1a1a2e";
+const PALETTE=["#0071e3","#5e5ce6","#30d158","#ff453a","#ff9f0a","#64d2ff","#bf5af2","#ff2d55","#32ade6","#ac8e68","#34c759","#ff6b6b","#4ecdc4","#ffd93d","#6bcb77"];
+
+// ── Default data ──────────────────────────────────────────────────────────────
+const DEF_YEARS=[2024,2025,2026,2027,2028];
+
+// Products: {id, name, type:"fix"|"pct", defaultPrice, note}
+// fix: revenue = qty * price
+// pct: revenue = qty * lmPrice * (pct/100)
+const DEF_PRODUCTS=[
+  {id:"schule",    name:"Schullizenz",         type:"fix", defaultPrice:150, note:"pro Lernende/r"},
+  {id:"verlag",    name:"Verlagslizenz",        type:"fix", defaultPrice:60,  note:"pro TN"},
+  {id:"referent",  name:"Referentenlizenz",     type:"fix", defaultPrice:200, note:"pro Person"},
+  {id:"examen",    name:"Prüfungsplattform",    type:"fix", defaultPrice:65,  note:"pro TN"},
+  {id:"autor",     name:"Autorenlizenz",        type:"fix", defaultPrice:150, note:"pro Person"},
+  {id:"aufschalt", name:"Aufschaltgebühr",      type:"fix", defaultPrice:1500,note:"einmalig"},
+  {id:"videocall", name:"Videokonferenz",       type:"fix", defaultPrice:0,   note:"nach Nutzung"},
+  {id:"ki_import", name:"KI-Importer",          type:"fix", defaultPrice:0,   note:"nach Nutzung"},
+  {id:"ki_learn",  name:"KI-Lernbegleiter",     type:"fix", defaultPrice:0,   note:"nach Nutzung"},
+  {id:"api",       name:"Schnittstelle/API",    type:"fix", defaultPrice:0,   note:"nach Aufwand"},
+  {id:"schulung",  name:"Schulungen",           type:"fix", defaultPrice:0,   note:"nach Aufwand"},
+  {id:"sle_pct",   name:"SLE Umsatzbeteiligung",type:"pct", defaultPrice:18,  note:"% vom Verkaufspreis"},
+  {id:"lm_pct",    name:"Lehrmittel Umsatz-%",  type:"pct", defaultPrice:18,  note:"% vom Nettoumsatz"},
+];
+
+// Client data structure:
+// volumes[year][productId] = quantity (or TN count for pct)
+// prices[year][productId] = override price (or %)
+// lmPrices[year][productId] = Lehrmittelpreis for pct products
+// admin[year] = Adminpauschale CHF
+function makeClientData(years, products){
+  const volumes={}, prices={}, lmPrices={}, admin={};
+  years.forEach(y=>{
+    volumes[y]={};prices[y]={};lmPrices[y]={};admin[y]=1500;
+    products.forEach(p=>{
+      volumes[y][p.id]=0;
+      prices[y][p.id]=p.defaultPrice;
+      lmPrices[y][p.id]=p.type==="pct"?100:0;
+    });
+  });
+  return {volumes,prices,lmPrices,admin};
+}
+
+// Calculate revenue for one client, one year
+function calcRev(client, year, products){
+  const v=client.volumes[year]||{};
+  const p=client.prices[year]||{};
+  const lm=client.lmPrices[year]||{};
+  const adm=client.admin[year]||0;
+  let rev=0;
+  products.forEach(prod=>{
+    const qty=v[prod.id]||0;
+    if(qty===0)return;
+    if(prod.type==="pct"){
+      const lmP=lm[prod.id]||100;
+      const pct=p[prod.id]||prod.defaultPrice;
+      rev+=qty*lmP*(pct/100);
+    } else {
+      rev+=qty*(p[prod.id]||prod.defaultPrice);
+    }
+  });
+  if(rev>0) rev+=adm;
+  return Math.round(rev);
+}
+
+function calcYearTotal(clients, year, products){
+  return clients.filter(c=>c.active).reduce((s,c)=>s+calcRev(c,year,products),0);
+}
+function calcClientTotal(client, years, products){
+  return years.reduce((s,y)=>s+calcRev(client,y,products),0);
+}
+
+function fmt(n){return new Intl.NumberFormat("de-CH",{style:"currency",currency:"CHF",maximumFractionDigits:0}).format(n);}
+function fmtK(n){if(n>=1e6)return(n/1e6).toFixed(1).replace(/\.0$/,"")+"M";if(n>=1000)return(n/1000).toFixed(0)+"k";return String(Math.round(n));}
+function ampel(client,years,products){
+  if(!client.active)return"#c7c7cc";
+  const t=calcClientTotal(client,years,products);
+  if(t===0)return RD;
+  if(client.prob<0.5)return OR;
+  if(t<20000)return"#ffcc00";
+  return GR;
+}
+function uid(){return"id-"+Math.random().toString(36).slice(2,8);}
+
+// ── SVG helpers ───────────────────────────────────────────────────────────────
+function BarChart({data,color,height=200}){
+  const W=540,H=height,P={t:12,r:12,b:30,l:54};
+  const vals=data.map(d=>d.v);
+  const maxV=Math.max(...vals,1);
+  const n=data.length;
+  const slotW=(W-P.l-P.r)/n;
+  const bw=Math.min(slotW*0.6,40);
+  const ticks=[0,.25,.5,.75,1];
+  return ce("svg",{viewBox:`0 0 ${W} ${H}`,style:{width:"100%",overflow:"visible"}},
+    ticks.map((f,i)=>{
+      const v=maxV*f,y=P.t+(H-P.t-P.b)*(1-f);
+      return ce("g",{key:i},
+        ce("line",{x1:P.l,x2:W-P.r,y1:y,y2:y,stroke:"#f0f0f4",strokeWidth:1}),
+        ce("text",{x:P.l-6,y:y+4,textAnchor:"end",fontSize:10,fill:SB},fmtK(v))
+      );
+    }),
+    data.map((d,i)=>{
+      const cx=P.l+i*slotW+slotW/2;
+      const bh=Math.max((H-P.t-P.b)*(d.v/maxV),0);
+      const y=P.t+(H-P.t-P.b)-bh;
+      return ce("g",{key:i},
+        ce("rect",{x:cx-bw/2,y,width:bw,height:bh,fill:d.color||color||BL,rx:5,opacity:.9}),
+        bh>18&&ce("text",{x:cx,y:y-5,textAnchor:"middle",fontSize:10,fill:d.color||color||BL,fontWeight:600},fmtK(d.v)),
+        ce("text",{x:cx,y:H-P.b+16,textAnchor:"middle",fontSize:10,fill:SB},d.l)
+      );
+    })
+  );
+}
+
+function LineChart({series,labels,height=220}){
+  const W=540,H=height,P={t:12,r:12,b:40,l:54};
+  const all=series.flatMap(s=>s.data);
+  const maxV=Math.max(...all,1);
+  const xs=i=>P.l+i*(W-P.l-P.r)/(Math.max(labels.length-1,1));
+  const ys=v=>P.t+(H-P.t-P.b)*(1-v/maxV);
+  return ce("svg",{viewBox:`0 0 ${W} ${H}`,style:{width:"100%",overflow:"visible"}},
+    [0,.25,.5,.75,1].map((f,i)=>{
+      const v=maxV*f,y=ys(v);
+      return ce("g",{key:i},
+        ce("line",{x1:P.l,x2:W-P.r,y1:y,y2:y,stroke:"#f0f0f4",strokeWidth:1}),
+        ce("text",{x:P.l-6,y:y+4,textAnchor:"end",fontSize:10,fill:SB},fmtK(v))
+      );
+    }),
+    labels.map((l,i)=>ce("text",{key:i,x:xs(i),y:H-P.b+16,textAnchor:"middle",fontSize:10,fill:SB},l)),
+    series.map(s=>ce("g",{key:s.name},
+      ce("polyline",{points:s.data.map((v,i)=>`${xs(i)},${ys(v)}`).join(" "),fill:"none",stroke:s.color,strokeWidth:s.w||2.5,strokeDasharray:s.dash||"none",strokeLinecap:"round",strokeLinejoin:"round"}),
+      s.dots!==false&&s.data.map((v,i)=>ce("circle",{key:i,cx:xs(i),cy:ys(v),r:3.5,fill:"#fff",stroke:s.color,strokeWidth:2.5}))
+    )),
+    series.map((s,i)=>ce("g",{key:i,transform:`translate(${P.l+i*120},${H-6})`},
+      ce("line",{x1:0,x2:16,y1:0,y2:0,stroke:s.color,strokeWidth:s.w||2.5,strokeDasharray:s.dash||"none"}),
+      ce("text",{x:20,y:4,fontSize:10,fill:SB},s.name)
+    ))
+  );
+}
+
+function Spark({data,color}){
+  const W=72,H=28,P=2;
+  const max=Math.max(...data,1),min=0;
+  const xs=i=>P+i*(W-2*P)/(Math.max(data.length-1,1));
+  const ys=v=>H-P-(H-2*P)*(v-min)/(max-min||1);
+  const pts=data.map((v,i)=>`${xs(i)},${ys(v)}`).join(" ");
+  return ce("svg",{viewBox:`0 0 ${W} ${H}`,style:{width:W,height:H}},
+    ce("polyline",{points:pts,fill:"none",stroke:color||BL,strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"})
+  );
+}
+
+// ── Modal wrapper ─────────────────────────────────────────────────────────────
+function Modal({onClose,children}){
+  return ce("div",{className:"modal-bg",onClick:e=>{if(e.target===e.currentTarget)onClose();}},
+    ce("div",{className:"modal"},children)
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App(){
+  const [years,setYears]=useState(DEF_YEARS);
+  const [products,setProducts]=useState(DEF_PRODUCTS);
+  const [clients,setClients]=useState(()=>{
+    // Build default clients with proper data structure
+    const mkCD=()=>makeClientData(DEF_YEARS,DEF_PRODUCTS);
+    
+    function mk(id,name,color,prob=1,active=true){
+      const d=mkCD();
+      return {id,name,color,prob,active,d};
+    }
+    
+    // Helper to set volume
+    function sv(c,y,pid,v){if(c.d.volumes[y])c.d.volumes[y][pid]=v;}
+    function sp(c,y,pid,v){if(c.d.prices[y])c.d.prices[y][pid]=v;}
+    
+    const hkv=mk("hkv-aarau","HKV Aarau","#0071e3");
+    [2024,2025,2026,2027,2028].forEach((y,i)=>{
+      sv(hkv,y,"schule",[1546,1748,1750,1750,1750][i]);
+      sv(hkv,y,"referent",[104,94,90,90,90][i]);
+    });
+
+    const bzf=mk("bzf","BZF Fricktal","#5e5ce6");
+    [2024,2025,2026,2027,2028].forEach((y,i)=>{
+      sv(bzf,y,"schule",[154,197,220,200,200][i]);
+      sv(bzf,y,"referent",[10,10,15,15,15][i]);
+    });
+
+    const fo=mk("fo-edu","FO Education","#30d158");
+    [2024,2025,2026,2027,2028].forEach((y,i)=>{
+      sv(fo,y,"verlag",[444,480,350,550,550][i]);
+      sv(fo,y,"autor",[7,12,18,20,20][i]);
+      sv(fo,y,"aufschalt",[0,1,1,1,1][i]);
+      sp(fo,y,"schule",60);sp(fo,y,"verlag",60);
+    });
+
+    const ep=mk("edupool","KV edupool","#ff453a");
+    [2024,2025,2026,2027,2028].forEach((y,i)=>{
+      sv(ep,y,"verlag",[0,418,1881,2181,2781][i]);
+      sv(ep,y,"referent",[0,79,180,0,0][i]);
+      sv(ep,y,"examen",[0,0,700,1000,750][i]);
+      sv(ep,y,"autor",[8,8,8,150,120][i]);
+      sv(ep,y,"aufschalt",[1,1,1,0,0][i]);
+      sp(ep,y,"referent",100);
+    });
+
+    const sib=mk("sib","SIB","#ff9f0a",0.7);
+    [[0,0,0,20,50],[0,0,5,5,5]].forEach((arr,pi)=>{
+      const pid=["schule","referent"][pi];
+      DEF_YEARS.forEach((y,i)=>sv(sib,y,pid,arr[i]));
+    });
+    DEF_YEARS.forEach(y=>sp(sib,y,"schule",175));
+
+    const bsl=mk("bsl","BSL Lenzburg","#64d2ff",0.5);
+    const hkvs=mk("hkv-swiss","HKV Swiss","#bf5af2");
+    [2024,2025,2026,2027,2028].forEach((y,i)=>{
+      sv(hkvs,y,"schule",[15,64,200,250,300][i]);
+      sv(hkvs,y,"referent",[9,5,20,20,20][i]);
+    });
+
+    const esbb=mk("edupool-sbb","edupool SBB","#ff2d55");
+    [2024,2025,2026,2027,2028].forEach((y,i)=>{
+      sv(esbb,y,"schule",[0,350,350,350,350][i]);
+      sp(esbb,y,"schule",60);
+    });
+
+    const kvb=mk("kv-basel","KV Basel","#32ade6");
+    DEF_YEARS.forEach(y=>{sv(kvb,y,"schule",1);sp(kvb,y,"schule",10000);});
+
+    const sa=mk("swiss-acc","Swiss Acc.","#4ecdc4");
+    [2024,2025,2026,2027,2028].forEach((y,i)=>{
+      sv(sa,y,"schule",[0,0,0,100,100][i]);
+      sv(sa,y,"verlag",[0,0,100,0,0][i]);
+      sp(sa,y,"schule",175);
+    });
+
+    const lb=mk("liebegg","Liebegg","#34c759");
+    [2024,2025,2026,2027,2028].forEach((y,i)=>{
+      sv(lb,y,"schule",[0,0,40,100,200][i]);
+      sv(lb,y,"referent",[0,0,10,0,0][i]);
+      sv(lb,y,"aufschalt",[0,0,1,0,0][i]);
+      sp(lb,y,"schule",135);
+    });
+
+    const iffp=mk("iffp","IfFP","#ac8e68",0.7);
+
+    return [hkv,bzf,fo,ep,sib,bsl,hkvs,esbb,kvb,sa,lb,iffp].map(c=>({
+      id:c.id,name:c.name,color:c.color,prob:c.prob,active:c.active,
+      volumes:c.d.volumes,prices:c.d.prices,lmPrices:c.d.lmPrices,admin:c.d.admin
+    }));
+  });
+
+  const [tab,setTab]=useState("overview");
+  const [selClientId,setSelClientId]=useState(null);
+  const [selYear,setSelYear]=useState(2025);
+  const [sc,setSc]=useState({pess:-15,opt:20});
+  const [modal,setModal]=useState(null);
+  const [note,setNote]=useState(null);
+  const [gsState,setGsState]=useState("idle");
+  const [lastSaved,setLastSaved]=useState(null);
+  const [authToken,setAuthToken]=useState(null);
+  const [history,setHistory]=useState([]);
+
+  const selC=clients.find(c=>c.id===selClientId)||null;
+
+  function toast(msg,ok=true){setNote({msg,ok});setTimeout(()=>setNote(null),3500);}
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  function setVol(cid,y,pid,v){
+    setClients(p=>p.map(c=>c.id===cid?{...c,volumes:{...c.volumes,[y]:{...c.volumes[y],[pid]:parseFloat(v)||0}}}:c));
+  }
+  function setPrice(cid,y,pid,v){
+    setClients(p=>p.map(c=>c.id===cid?{...c,prices:{...c.prices,[y]:{...c.prices[y],[pid]:parseFloat(v)||0}}}:c));
+  }
+  function setLmPrice(cid,y,pid,v){
+    setClients(p=>p.map(c=>c.id===cid?{...c,lmPrices:{...c.lmPrices,[y]:{...c.lmPrices[y],[pid]:parseFloat(v)||0}}}:c));
+  }
+  function setAdmin(cid,y,v){
+    setClients(p=>p.map(c=>c.id===cid?{...c,admin:{...c.admin,[y]:parseFloat(v)||0}}:c));
+  }
+  function setProp(cid,f,v){setClients(p=>p.map(c=>c.id===cid?{...c,[f]:v}:c));}
+
+  // ── Add year ──────────────────────────────────────────────────────────────
+  function addYear(){
+    const next=years[years.length-1]+1;
+    const lastY=years[years.length-1];
+    setYears(p=>[...p,next]);
+    setClients(p=>p.map(c=>{
+      const lastVol=c.volumes[lastY]||{};
+      const lastPri=c.prices[lastY]||{};
+      const lastLm=c.lmPrices[lastY]||{};
+      const newVol={},newPri={},newLm={};
+      products.forEach(prod=>{newVol[prod.id]=0;newPri[prod.id]=lastPri[prod.id]||prod.defaultPrice;newLm[prod.id]=lastLm[prod.id]||0;});
+      return {...c,
+        volumes:{...c.volumes,[next]:newVol},
+        prices:{...c.prices,[next]:newPri},
+        lmPrices:{...c.lmPrices,[next]:newLm},
+        admin:{...c.admin,[next]:c.admin[lastY]||1500}
+      };
+    }));
+    setSelYear(next);
+  }
+
+  function removeYear(y){
+    if(years.length<=2){toast("Mindestens 2 Jahre nötig",false);return;}
+    const input=window.prompt("Jahr "+y+" wirklich löschen? Alle Daten dieses Jahres gehen verloren.\n\nZur Bestätigung das Jahr eingeben:");
+    if(input!==String(y)){toast("Abgebrochen — Jahr nicht gelöscht",false);return;}
+    setYears(p=>p.filter(yr=>yr!==y));
+    setClients(p=>p.map(c=>{
+      const nv={...c.volumes},np={...c.prices},nl={...c.lmPrices},na={...c.admin};
+      delete nv[y];delete np[y];delete nl[y];delete na[y];
+      return {...c,volumes:nv,prices:np,lmPrices:nl,admin:na};
+    }));
+    if(selYear===y)setSelYear(years[years.length-2]);
+    toast("Jahr "+y+" gelöscht. Vor dem Verlust: Verlauf öffnen um ggf. wiederherzustellen.");
+  }
+
+  // ── Add product ───────────────────────────────────────────────────────────
+  function addProduct(name,type,defaultPrice,note){
+    const id=uid();
+    const prod={id,name,type,defaultPrice:parseFloat(defaultPrice)||0,note:note||""};
+    setProducts(p=>[...p,prod]);
+    setClients(p=>p.map(c=>{
+      const nv={...c.volumes},np={...c.prices},nl={...c.lmPrices};
+      years.forEach(y=>{
+        nv[y]={...nv[y],[id]:0};
+        np[y]={...np[y],[id]:parseFloat(defaultPrice)||0};
+        nl[y]={...nl[y],[id]:type==="pct"?100:0};
+      });
+      return {...c,volumes:nv,prices:np,lmPrices:nl};
+    }));
+    setModal(null);
+    toast("Produkt '"+name+"' hinzugefügt ✓");
+  }
+
+  function removeProduct(pid){
+    setProducts(p=>p.filter(pr=>pr.id!==pid));
+    setClients(p=>p.map(c=>{
+      const nv={...c.volumes},np={...c.prices},nl={...c.lmPrices};
+      years.forEach(y=>{delete nv[y][pid];delete np[y][pid];delete nl[y][pid];});
+      return {...c,volumes:nv,prices:np,lmPrices:nl};
+    }));
+  }
+
+  // ── Add client ────────────────────────────────────────────────────────────
+  function addClient(name){
+    const id=uid();
+    const color=PALETTE[clients.length%PALETTE.length];
+    const d=makeClientData(years,products);
+    setClients(p=>[...p,{id,name,color,prob:1,active:true,volumes:d.volumes,prices:d.prices,lmPrices:d.lmPrices,admin:d.admin}]);
+    setSelClientId(id);setTab("kunden");setModal(null);
+    toast("Kunde '"+name+"' hinzugefügt ✓");
+  }
+
+  function removeClient(cid){
+    setClients(p=>p.filter(c=>c.id!==cid));
+    if(selClientId===cid)setSelClientId(null);
+    toast("Kunde gelöscht");
+  }
+
+  // ── Google Sheets ─────────────────────────────────────────────────────────
+  async function loadFromSheets(){
+    setGsState("loading");
+    try{
+      const res=await fetch(READ_URL);
+      if(!res.ok)throw new Error("HTTP "+res.status);
+      const json=await res.json();
+      const raw=json.values&&json.values[0]&&json.values[0][0];
+      if(!raw)throw new Error("Sheet leer — noch keine Daten gespeichert");
+      const d=JSON.parse(raw);
+      if(d.clients)setClients(d.clients);
+      if(d.products)setProducts(d.products);
+      if(d.years)setYears(d.years);
+      if(d.sc)setSc(d.sc);
+      if(d.savedAt)setLastSaved(d.savedAt);
+      if(d.history)setHistory(d.history);
+      setGsState("ok");
+      toast("Geladen ✓  Stand: "+new Date(d.savedAt).toLocaleString("de-CH"));
+      setTimeout(()=>setGsState("idle"),3000);
+    }catch(ex){
+      setGsState("err");toast("Laden: "+ex.message,false);
+      setTimeout(()=>setGsState("idle"),4000);
+    }
+  }
+
+  async function saveToSheets(){
+    if(!authToken){toast("Zuerst anmelden",false);return;}
+    setGsState("saving");
+    try{
+      const now=new Date().toISOString();
+      // Keep last 20 versions in history
+      const snapshot={clients,products,years,sc,savedAt:now};
+      const newHistory=[snapshot,...history.slice(0,19)];
+      const payload={v:3,savedAt:now,clients,products,years,sc,history:newHistory};
+      const res=await fetch(WRITE_URL,{method:"PUT",
+        headers:{"Authorization":"Bearer "+authToken,"Content-Type":"application/json"},
+        body:JSON.stringify({values:[[JSON.stringify(payload)]]})
+      });
+      if(!res.ok)throw new Error("HTTP "+res.status);
+      setHistory(newHistory);
+      setLastSaved(now);
+      setGsState("ok");toast("Gespeichert ✓  (Version "+newHistory.length+" im Verlauf)");
+      setTimeout(()=>setGsState("idle"),3000);
+    }catch(ex){
+      setGsState("err");toast("Speichern: "+ex.message,false);
+      setTimeout(()=>setGsState("idle"),4000);
+    }
+  }
+
+  function restoreVersion(snapshot){
+    if(!confirm("Stand vom "+new Date(snapshot.savedAt).toLocaleString("de-CH")+" wiederherstellen? Aktuelle Daten werden ersetzt."))return;
+    if(snapshot.clients)setClients(snapshot.clients);
+    if(snapshot.products)setProducts(snapshot.products);
+    if(snapshot.years)setYears(snapshot.years);
+    if(snapshot.sc)setSc(snapshot.sc);
+    setModal(null);
+    toast("Wiederhergestellt: Stand "+new Date(snapshot.savedAt).toLocaleString("de-CH"));
+  }
+
+  function googleSignIn(){
+    const SCOPE="https://www.googleapis.com/auth/spreadsheets";
+    const REDIRECT=encodeURIComponent(window.location.href.split("?")[0].split("#")[0]);
+    window.location.href=`https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT}&response_type=token&scope=${SCOPE}&prompt=consent`;
+  }
+
+  useEffect(()=>{
+    const hash=window.location.hash;
+    if(hash.includes("access_token")){
+      const params=new URLSearchParams(hash.replace("#",""));
+      const t=params.get("access_token");
+      if(t){setAuthToken(t);toast("Angemeldet ✓");}
+      window.history.replaceState(null,"",window.location.pathname);
+    }
+    loadFromSheets();
+  },[]);
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const yearTotals=years.map(y=>calcYearTotal(clients,y,products));
+  const tG=yearTotals.reduce((s,v)=>s+v,0);
+  const tW=clients.filter(c=>c.active).reduce((s,c)=>s+calcClientTotal(c,years,products)*c.prob,0);
+  const firstY=years[1]||years[0], lastY=years[years.length-1];
+  const cagr=calcYearTotal(clients,firstY,products)>0
+    ?((calcYearTotal(clients,lastY,products)/calcYearTotal(clients,firstY,products))**
+      (1/Math.max(years.indexOf(lastY)-years.indexOf(firstY),1))-1)*100:0;
+
+  const gsLabel=gsState==="loading"?"Lädt…":gsState==="saving"?"…":gsState==="ok"?"✓ Sync":gsState==="err"?"✗ Fehler":"☁ Laden";
+  const gsBg=gsState==="ok"?GR:gsState==="err"?RD:"transparent";
+  const gsCol=(gsState==="ok"||gsState==="err")?"#fff":SB;
+  const TABS=[["overview","Übersicht"],["jahres","Jahresanalyse"],["kunden","Kunden"],["produkte","Produkte"],["simulation","Simulation"]];
+
+  // ── Year strip component ───────────────────────────────────────────────────
+  function YearStrip({showRemove=false}){
+    return ce("div",{style:{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}},
+      years.map(y=>ce("div",{key:y,style:{position:"relative"}},
+        ce("button",{className:"yr-btn"+(selYear===y?" active":""),onClick:()=>setSelYear(y)},y),
+        showRemove&&years.length>2&&ce("button",{
+          onClick:e=>{e.stopPropagation();if(confirm("Jahr "+y+" entfernen?"))removeYear(y);},
+          style:{position:"absolute",top:-6,right:-6,width:17,height:17,borderRadius:"50%",background:RD,border:"none",color:"#fff",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}
+        },"×")
+      )),
+      ce("button",{className:"yr-btn-add",onClick:addYear},"+ "+(years[years.length-1]+1))
+    );
+  }
+
+  return ce("div",{style:{minHeight:"100vh",background:BG}},
+
+    // Toast
+    note&&ce("div",{style:{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",zIndex:3000,background:note.ok?GR:RD,color:"#fff",padding:"11px 24px",borderRadius:24,fontSize:14,fontWeight:500,boxShadow:"0 6px 24px rgba(0,0,0,.18)",whiteSpace:"nowrap",maxWidth:"88vw"}},note.msg),
+
+    // Modals
+    modal&&modal.type==="addClient"&&ce(Modal,{onClose:()=>setModal(null)},
+      ce(AddClientModal,{onAdd:addClient,onClose:()=>setModal(null)})
+    ),
+    modal&&modal.type==="addProduct"&&ce(Modal,{onClose:()=>setModal(null)},
+      ce(AddProductModal,{onAdd:addProduct,onClose:()=>setModal(null)})
+    ),
+    modal&&modal.type==="history"&&ce(Modal,{onClose:()=>setModal(null)},
+      ce(HistoryModal,{history,onRestore:restoreVersion,onClose:()=>setModal(null)})
+    ),
+
+    // Navbar
+    ce("div",{style:{background:"rgba(255,255,255,.92)",backdropFilter:"blur(24px)",borderBottom:"1px solid "+BD,position:"sticky",top:0,zIndex:200}},
+      ce("div",{style:{maxWidth:1400,margin:"0 auto",padding:"0 24px",display:"flex",alignItems:"center",height:56,gap:0}},
+        ce("div",{style:{marginRight:28,flexShrink:0}},
+          ce("div",{style:{fontSize:10,color:BL,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase"}},"● Timeline Education"),
+          ce("div",{style:{fontSize:17,fontWeight:700,color:TX,letterSpacing:"-.03em"}},"Ertragsprognose")
+        ),
+        ce("div",{style:{display:"flex",gap:2,flex:1,background:BG,borderRadius:24,padding:4,border:"1px solid "+BD}},
+          TABS.map(([k,l])=>ce("button",{key:k,className:"tab-btn"+(tab===k?" active":""),onClick:()=>setTab(k)},l))
+        ),
+        ce("div",{style:{display:"flex",gap:8,marginLeft:20,alignItems:"center",flexShrink:0}},
+          lastSaved&&ce("span",{style:{fontSize:11,color:SB,whiteSpace:"nowrap"}},
+            new Date(lastSaved).toLocaleString("de-CH",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})
+          ),
+          ce("button",{className:"btn-ghost",style:{background:gsBg,color:gsCol,border:gsState==="idle"?"1.5px solid "+BD:"none",minWidth:90},onClick:loadFromSheets,disabled:gsState==="loading"},
+            gsState==="loading"?ce("span",{className:"spin"},"↻"):" ",gsLabel
+          ),
+          history.length>0&&ce("button",{className:"btn-ghost",style:{fontSize:12,padding:"7px 14px"},onClick:()=>setModal({type:"history"})},"🕐 Verlauf ("+history.length+")"),
+          authToken
+            ?ce("button",{className:"btn-success",onClick:saveToSheets,disabled:gsState==="saving"},"💾 Speichern")
+            :ce("button",{onClick:googleSignIn,style:{background:"#4285F4",border:"none",color:"#fff",borderRadius:20,padding:"8px 16px",fontSize:13,fontWeight:500,cursor:"pointer"}},"G Anmelden")
+        )
+      )
+    ),
+
+    // Hint bar
+    !authToken&&ce("div",{style:{background:"#fffbea",borderBottom:"1px solid #f5d174",padding:"9px 24px",fontSize:12,color:"#92400e"}},
+      "💡 Laden: kostenlos. Speichern & Sync: oben rechts 'G Anmelden' klicken."
+    ),
+
+    ce("div",{style:{maxWidth:1400,margin:"0 auto",padding:"22px 24px"}},
+
+    // ══ OVERVIEW ══
+    tab==="overview"&&ce("div",{className:"fade"},
+      // KPIs
+      ce("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}},
+        [
+          ["Ertragsprognose",fmt(tG),years[0]+"–"+lastY+" kumuliert",BL,yearTotals],
+          ["Gewichtet",fmt(tW),"Nach Wahrscheinlichkeit",GR,null],
+          ["CAGR",cagr.toFixed(1)+"%","Jährl. Wachstum",cagr>10?GR:OR,null],
+          ["Aktive Kunden",clients.filter(c=>c.active).length,"von "+clients.length+" gesamt",BL,null],
+        ].map(([l,v,s,col,spark],i)=>
+          ce("div",{key:i,className:"card",style:{position:"relative",overflow:"hidden"}},
+            spark&&ce("div",{style:{position:"absolute",bottom:14,right:14,opacity:.3}},ce(Spark,{data:spark,color:col})),
+            ce("div",{style:{fontSize:10,color:SB,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}},l),
+            ce("div",{style:{fontSize:26,fontWeight:700,color:col,letterSpacing:"-.03em",lineHeight:1.05}},v),
+            ce("div",{style:{fontSize:12,color:SB,marginTop:4}},s)
+          )
+        )
+      ),
+      // Charts
+      ce("div",{style:{display:"grid",gridTemplateColumns:"3fr 2fr",gap:12,marginBottom:12}},
+        ce("div",{className:"card"},
+          ce("div",{style:{fontSize:15,fontWeight:700,color:TX,marginBottom:3}},"Ertragsentwicklung"),
+          ce("div",{style:{fontSize:12,color:SB,marginBottom:18}},"Basis + Szenarien"),
+          ce(LineChart,{height:250,labels:years.map(String),series:[
+            {name:"Basis",color:BL,w:3,data:yearTotals},
+            {name:"Pessimistisch",color:RD,w:1.5,dash:"5,4",dots:false,data:yearTotals.map(v=>Math.round(v*(1+sc.pess/100)))},
+            {name:"Optimistisch",color:GR,w:1.5,dash:"5,4",dots:false,data:yearTotals.map(v=>Math.round(v*(1+sc.opt/100)))}
+          ]})
+        ),
+        ce("div",{className:"card"},
+          ce("div",{style:{fontSize:15,fontWeight:700,color:TX,marginBottom:3}},"Jahresvergleich"),
+          ce("div",{style:{fontSize:12,color:SB,marginBottom:18}},"Gesamtertrag aktive Kunden"),
+          ce(BarChart,{height:250,color:BL,data:years.map((y,i)=>({l:String(y),v:yearTotals[i]}))})
+        )
+      ),
+      // Client grid
+      ce("div",{className:"card"},
+        ce("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}},
+          ce("div",null,
+            ce("div",{style:{fontSize:15,fontWeight:700,color:TX}},"Kunden-Portfolio"),
+            ce("div",{style:{fontSize:12,color:SB,marginTop:2}},"Ampel = Status · klicken für Details")
+          ),
+          ce("button",{className:"btn-primary",onClick:()=>setModal({type:"addClient"})},"+  Kunde hinzufügen")
+        ),
+        ce("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(165px,1fr))",gap:10}},
+          clients.map(c=>{
+            const col=ampel(c,years,products),tot=calcClientTotal(c,years,products);
+            return ce("div",{key:c.id,
+              onClick:()=>{setSelClientId(c.id);setTab("kunden");},
+              style:{background:BG,border:"2px solid "+col+"30",borderRadius:14,padding:"14px 16px",cursor:"pointer",opacity:c.active?1:.45,transition:"all .18s"},
+              onMouseEnter:e=>{e.currentTarget.style.borderColor=col;e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 6px 20px rgba(0,0,0,.09)";},
+              onMouseLeave:e=>{e.currentTarget.style.borderColor=col+"30";e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none";}},
+              ce("div",{style:{display:"flex",alignItems:"center",gap:7,marginBottom:8}},
+                ce("div",{style:{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0,boxShadow:"0 0 0 3px "+col+"22"}}),
+                ce("div",{style:{fontSize:13,fontWeight:600,color:TX,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},c.name)
+              ),
+              ce("div",{style:{fontSize:19,fontWeight:700,color:TX,letterSpacing:"-.02em"}},fmtK(tot)),
+              ce("div",{style:{fontSize:11,color:SB,marginTop:3}},Math.round(c.prob*100)+"% · "+years.length+"J"),
+              ce("div",{style:{marginTop:8}},ce(Spark,{data:years.map(y=>calcRev(c,y,products)),color:c.color||BL}))
+            );
+          })
+        )
+      )
+    ),
+
+    // ══ JAHRESANALYSE ══
+    tab==="jahres"&&ce("div",{className:"fade"},
+      ce("div",{style:{marginBottom:16}},ce(YearStrip,{showRemove:true})),
+      // KPIs
+      ce("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}},
+        (()=>{
+          const tot=calcYearTotal(clients,selYear,products);
+          const actN=clients.filter(c=>c.active&&calcRev(c,selYear,products)>0).length;
+          const avg=actN>0?tot/actN:0;
+          const prevY=years[years.indexOf(selYear)-1];
+          const prevTot=prevY?calcYearTotal(clients,prevY,products):null;
+          const growth=prevTot?((tot/prevTot-1)*100):null;
+          return [
+            ["Gesamtertrag",fmt(tot),"Alle aktiven Kunden "+selYear,BL],
+            ["Aktive Kunden",actN,"Mit Ertrag > 0",GR],
+            ["Ø pro Kunde",actN>0?fmt(avg):"–","Durchschnitt",OR],
+            ["vs. Vorjahr",growth!==null?(growth>0?"+":"")+growth.toFixed(1)+"%":"–","Wachstum",growth>0?GR:RD],
+          ];
+        })().map(([l,v,s,col],i)=>
+          ce("div",{key:i,className:"card"},
+            ce("div",{style:{fontSize:10,color:SB,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}},l),
+            ce("div",{style:{fontSize:26,fontWeight:700,color:col,letterSpacing:"-.03em"}},v),
+            ce("div",{style:{fontSize:12,color:SB,marginTop:4}},s)
+          )
+        )
+      ),
+      ce("div",{style:{display:"grid",gridTemplateColumns:"3fr 2fr",gap:12}},
+        ce("div",{className:"card"},
+          ce("div",{style:{fontSize:15,fontWeight:700,color:TX,marginBottom:4}},"Ertrag pro Kunde — "+selYear),
+          ce("div",{style:{fontSize:12,color:SB,marginBottom:18}},"Alle aktiven Kunden mit Ertrag"),
+          ce("div",{style:{display:"flex",flexDirection:"column",gap:10}},
+            clients
+              .filter(c=>c.active&&calcRev(c,selYear,products)>0)
+              .sort((a,b)=>calcRev(b,selYear,products)-calcRev(a,selYear,products))
+              .map(c=>{
+                const rev=calcRev(c,selYear,products);
+                const tot=calcYearTotal(clients,selYear,products);
+                const pct=tot>0?rev/tot*100:0;
+                return ce("div",{key:c.id,style:{display:"flex",alignItems:"center",gap:10}},
+                  ce("div",{style:{width:110,fontSize:12,fontWeight:500,color:TX,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},c.name),
+                  ce("div",{style:{flex:1,background:"#f0f2f5",borderRadius:6,height:22,overflow:"hidden"}},
+                    ce("div",{style:{width:pct+"%",background:c.color||BL,height:"100%",borderRadius:6,minWidth:pct>0?4:0,transition:"width .4s"}})
+                  ),
+                  ce("div",{style:{width:76,fontSize:12,fontWeight:600,color:TX,textAlign:"right"}},fmt(rev)),
+                  ce("div",{style:{width:34,fontSize:11,color:SB,textAlign:"right"}},pct.toFixed(0)+"%")
+                );
+              })
+          )
+        ),
+        ce("div",{className:"card"},
+          ce("div",{style:{fontSize:15,fontWeight:700,color:TX,marginBottom:4}},"Produkt-Mix — "+selYear),
+          ce("div",{style:{fontSize:12,color:SB,marginBottom:18}},"Ertrag nach Produktkategorie"),
+          ce("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+            (()=>{
+              const byProd={};
+              products.forEach(prod=>{
+                let rev=0;
+                clients.filter(c=>c.active).forEach(c=>{
+                  const qty=(c.volumes[selYear]||{})[prod.id]||0;
+                  if(qty===0)return;
+                  if(prod.type==="pct"){
+                    const lmP=(c.lmPrices[selYear]||{})[prod.id]||100;
+                    const pct=(c.prices[selYear]||{})[prod.id]||prod.defaultPrice;
+                    rev+=qty*lmP*(pct/100);
+                  } else {
+                    rev+=qty*((c.prices[selYear]||{})[prod.id]||prod.defaultPrice);
+                  }
+                });
+                if(rev>0)byProd[prod.name]=Math.round(rev);
+              });
+              const sorted=Object.entries(byProd).sort((a,b)=>b[1]-a[1]);
+              const tot=sorted.reduce((s,[,v])=>s+v,0);
+              const cols=["#0071e3","#5e5ce6","#30d158","#ff9f0a","#bf5af2","#ff2d55","#32ade6","#34c759","#ff453a","#64d2ff"];
+              return sorted.map(([name,rev],i)=>
+                ce("div",{key:name,style:{display:"flex",alignItems:"center",gap:10}},
+                  ce("div",{style:{width:10,height:10,borderRadius:3,background:cols[i%cols.length],flexShrink:0}}),
+                  ce("div",{style:{flex:1,fontSize:12,color:TX,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},name),
+                  ce("div",{style:{fontSize:12,fontWeight:600,color:TX}},fmt(rev)),
+                  ce("div",{style:{fontSize:11,color:SB,minWidth:32,textAlign:"right"}},(rev/tot*100).toFixed(0)+"%")
+                )
+              );
+            })()
+          )
+        )
+      )
+    ),
+
+    // ══ KUNDEN ══
+    tab==="kunden"&&ce("div",{className:"fade",style:{display:"grid",gridTemplateColumns:"210px 1fr",gap:16}},
+      // Sidebar
+      ce("div",{className:"card",style:{padding:0,overflow:"hidden",alignSelf:"start"}},
+        ce("div",{style:{padding:"13px 16px",borderBottom:"1px solid "+BD,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+          ce("span",{style:{fontSize:11,color:SB,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}},"Kunden"),
+          ce("button",{className:"btn-primary",style:{padding:"4px 10px",fontSize:11},onClick:()=>setModal({type:"addClient"})},"+")
+        ),
+        clients.map(c=>{
+          const sel=c.id===selClientId,col=ampel(c,years,products);
+          return ce("div",{key:c.id,onClick:()=>setSelClientId(c.id),
+            style:{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:sel?"#f0f7ff":"transparent",borderLeft:sel?"3px solid "+BL:"3px solid transparent",opacity:c.active?1:.45,transition:"all .1s"}},
+            ce("div",{style:{width:7,height:7,borderRadius:"50%",background:col,flexShrink:0}}),
+            ce("div",{style:{fontSize:13,color:sel?BL:TX,fontWeight:sel?600:400,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},c.name),
+            ce("div",{style:{fontSize:11,color:SB}},fmtK(calcClientTotal(c,years,products)))
+          );
+        })
+      ),
+
+      selC?ce("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+        // Client header
+        ce("div",{className:"card"},
+          ce("div",{style:{display:"flex",alignItems:"flex-start",gap:16,flexWrap:"wrap"}},
+            ce("div",{style:{width:14,height:14,borderRadius:"50%",background:ampel(selC,years,products),marginTop:4,boxShadow:"0 0 0 4px "+ampel(selC,years,products)+"22"}}),
+            ce("div",{style:{flex:1}},
+              ce("div",{style:{fontSize:22,fontWeight:700,letterSpacing:"-.025em",color:TX}},selC.name),
+              ce("div",{style:{fontSize:13,color:SB,marginTop:4}},
+                "Gesamtertrag: ",ce("b",{style:{color:TX}},fmt(calcClientTotal(selC,years,products))),
+                "  ·  gewichtet: ",ce("b",{style:{color:GR}},fmt(calcClientTotal(selC,years,products)*selC.prob))
+              )
+            ),
+            ce("div",{style:{display:"flex",flexDirection:"column",gap:10}},
+              ce("label",{style:{fontSize:12,color:SB,display:"flex",flexDirection:"column",gap:4}},
+                "Wahrscheinlichkeit — ",ce("b",{style:{color:BL}},Math.round(selC.prob*100),"%"),
+                ce("input",{type:"range",min:0,max:100,value:Math.round(selC.prob*100),onChange:e=>setProp(selC.id,"prob",parseFloat(e.target.value)/100)})
+              ),
+              ce("div",{style:{display:"flex",gap:10,alignItems:"center"}},
+                ce("label",{style:{display:"flex",alignItems:"center",gap:7,fontSize:13,color:SB,cursor:"pointer"}},
+                  ce("input",{type:"checkbox",checked:selC.active,onChange:e=>setProp(selC.id,"active",e.target.checked),style:{width:15,height:15,accentColor:BL}}),
+                  "Aktiv"
+                ),
+                ce("button",{className:"btn-danger",onClick:()=>{if(confirm("Kunden '"+selC.name+"' löschen?"))removeClient(selC.id);}},"🗑")
+              )
+            )
+          )
+        ),
+
+        // Year summary cards
+        ce("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:8}},
+          years.map(y=>{
+            const rev=calcRev(selC,y,products);
+            return ce("div",{key:y,className:"card-xs",style:{border:selYear===y?"2px solid "+BL+"66":"none",cursor:"pointer"},onClick:()=>setSelYear(y)},
+              ce("div",{style:{fontSize:11,color:selYear===y?BL:SB,fontWeight:600,marginBottom:4}},y),
+              ce("div",{style:{fontSize:16,fontWeight:700,color:rev>0?TX:SB}},rev>0?fmtK(rev):"–"),
+              ce("div",{style:{fontSize:10,color:SB}},rev>0?fmt(rev):"")
+            );
+          })
+        ),
+
+        // Year selector
+        ce("div",{style:{marginBottom:0}},ce(YearStrip,{showRemove:false})),
+
+        // Product table for this client & year
+        ce("div",{className:"card"},
+          ce("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}},
+            ce("div",null,
+              ce("div",{style:{fontSize:15,fontWeight:700,color:TX}},"Produkte & Preise — "+selYear),
+              ce("div",{style:{fontSize:12,color:SB,marginTop:2}},"Menge, Preis und Ertrag pro Produkt")
+            ),
+            ce("div",{style:{display:"flex",alignItems:"center",gap:12}},
+              ce("span",{style:{fontSize:12,color:SB}},"Admin-Pauschale:"),
+              ce("input",{type:"number",min:0,value:selC.admin[selYear]||0,onChange:e=>setAdmin(selC.id,selYear,e.target.value),
+                className:"inp-sm",style:{width:80,fontSize:14,fontWeight:600,textAlign:"right"}})
+            )
+          ),
+          ce("table",null,
+            ce("thead",null,ce("tr",null,
+              ["Produkt","Typ","Menge","Preis / %","LM-Preis","Ertrag"].map(h=>ce("th",{key:h,style:{textAlign:h==="Produkt"||h==="Typ"?"left":"right"}},h))
+            )),
+            ce("tbody",null,
+              products.map(prod=>{
+                const qty=(selC.volumes[selYear]||{})[prod.id]||0;
+                const price=(selC.prices[selYear]||{})[prod.id]||prod.defaultPrice;
+                const lmP=(selC.lmPrices[selYear]||{})[prod.id]||0;
+                let rev=0;
+                if(qty>0){
+                  if(prod.type==="pct") rev=qty*lmP*(price/100);
+                  else rev=qty*price;
+                }
+                return ce("tr",{key:prod.id},
+                  ce("td",{style:{fontWeight:500}},
+                    ce("div",null,prod.name),
+                    ce("div",{style:{fontSize:11,color:SB}},prod.note)
+                  ),
+                  ce("td",{style:{textAlign:"left"}},
+                    ce("span",{className:"tag",style:{background:prod.type==="pct"?"#fff8e7":"#f0f7ff",color:prod.type==="pct"?OR:BL}},
+                      prod.type==="pct"?"% Umsatz":"Fix"
+                    )
+                  ),
+                  ce("td",null,
+                    ce("input",{type:"number",min:0,value:qty,onChange:e=>setVol(selC.id,selYear,prod.id,e.target.value),
+                      className:"inp-sm",style:{width:72}})
+                  ),
+                  ce("td",null,
+                    ce("div",{style:{display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}},
+                      ce("input",{type:"number",min:0,value:price,onChange:e=>setPrice(selC.id,selYear,prod.id,e.target.value),
+                        className:"inp-sm",style:{width:72,color:BL}}),
+                      ce("span",{style:{fontSize:11,color:SB}},prod.type==="pct"?"%":"CHF")
+                    )
+                  ),
+                  ce("td",null,
+                    prod.type==="pct"
+                      ?ce("input",{type:"number",min:0,value:lmP,onChange:e=>setLmPrice(selC.id,selYear,prod.id,e.target.value),
+                          className:"inp-sm",style:{width:72}})
+                      :ce("span",{style:{color:SB,fontSize:12}})
+                  ),
+                  ce("td",{style:{fontWeight:600,color:rev>0?TX:SB,fontSize:14}},rev>0?fmt(rev):"–")
+                );
+              }),
+              ce("tr",{style:{borderTop:"2px solid "+BD}},
+                ce("td",{colSpan:5,style:{fontWeight:700,fontSize:14,paddingTop:12}},"Gesamtertrag "+selYear),
+                ce("td",{style:{fontWeight:700,fontSize:16,color:BL,paddingTop:12}},fmt(calcRev(selC,selYear,products)))
+              )
+            )
+          )
+        ),
+
+        // Chart
+        ce("div",{className:"card"},
+          ce("div",{style:{fontSize:15,fontWeight:700,color:TX,marginBottom:16}},"Ertragsverlauf"),
+          ce(BarChart,{height:200,color:selC.color||BL,data:years.map(y=>({l:String(y),v:calcRev(selC,y,products)}))})
+        )
+      ):ce("div",{className:"card",style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,height:280,color:SB}},
+        ce("div",{style:{fontSize:36}},"👈"),
+        ce("div",{style:{fontSize:14}},"Kunden auswählen oder neuen hinzufügen"),
+        ce("button",{className:"btn-primary",onClick:()=>setModal({type:"addClient"})},"+ Neuer Kunde")
+      )
+    ),
+
+    // ══ PRODUKTE ══
+    tab==="produkte"&&ce("div",{className:"fade"},
+      ce("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}},
+        ce("div",null,
+          ce("div",{style:{fontSize:18,fontWeight:700,color:TX}},"Produkte & Dienstleistungen"),
+          ce("div",{style:{fontSize:13,color:SB,marginTop:3}},"Fix = Preis × Menge  ·  % Umsatz = TN × LM-Preis × Prozentsatz")
+        ),
+        ce("button",{className:"btn-primary",onClick:()=>setModal({type:"addProduct"})},"+  Produkt hinzufügen")
+      ),
+      ce("div",{className:"card",style:{padding:0,overflow:"hidden"}},
+        ce("table",null,
+          ce("thead",null,ce("tr",null,
+            ["Produkt","Beschreibung","Typ","Standardpreis","Eingesetzt bei","Aktionen"].map(h=>ce("th",{key:h,style:{textAlign:h==="Aktionen"?"center":"left"}},h))
+          )),
+          ce("tbody",null,
+            products.map(prod=>{
+              const usedBy=clients.filter(c=>years.some(y=>(c.volumes[y]||{})[prod.id]>0));
+              return ce("tr",{key:prod.id},
+                ce("td",{style:{fontWeight:600}},prod.name),
+                ce("td",{style:{color:SB,fontSize:12}},prod.note||"–"),
+                ce("td",null,
+                  ce("span",{className:"tag",style:{background:prod.type==="pct"?"#fff8e7":"#f0f7ff",color:prod.type==="pct"?OR:BL}},
+                    prod.type==="pct"?"% Umsatz":"Fix CHF"
+                  )
+                ),
+                ce("td",null,prod.type==="pct"?prod.defaultPrice+"%":"CHF "+prod.defaultPrice),
+                ce("td",null,
+                  usedBy.length>0
+                    ?ce("div",{style:{display:"flex",gap:4,flexWrap:"wrap"}},
+                        usedBy.map(c=>ce("span",{key:c.id,className:"tag",style:{background:"#f0f2f5",color:TX}},c.name))
+                      )
+                    :ce("span",{style:{fontSize:12,color:SB}},"–")
+                ),
+                ce("td",{style:{textAlign:"center"}},
+                  usedBy.length===0&&ce("button",{className:"btn-danger",onClick:()=>{if(confirm("Produkt '"+prod.name+"' löschen?"))removeProduct(prod.id);}},"Löschen")
+                )
+              );
+            })
+          )
+        )
+      )
+    ),
+
+    // ══ SIMULATION ══
+    tab==="simulation"&&ce("div",{className:"fade"},
+      ce("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}},
+        [["pess","Pessimistisch",RD],["opt","Optimistisch",GR]].map(([k,l,col])=>
+          ce("div",{key:k,className:"card"},
+            ce("div",{style:{fontSize:13,fontWeight:700,color:col,textTransform:"uppercase",letterSpacing:".06em",marginBottom:14}},l),
+            ce("div",{style:{display:"flex",alignItems:"center",gap:16}},
+              ce("input",{type:"range",min:-60,max:100,value:sc[k],onChange:e=>setSc(p=>({...p,[k]:parseInt(e.target.value)})),style:{flex:1,accentColor:col}}),
+              ce("div",{style:{fontSize:28,fontWeight:700,color:col,minWidth:64,textAlign:"right"}},sc[k]>0?"+":"",sc[k],"%")
+            )
+          )
+        )
+      ),
+      ce("div",{className:"card",style:{marginBottom:12}},
+        ce("div",{style:{fontSize:15,fontWeight:700,color:TX,marginBottom:18}},"Szenario-Chart"),
+        ce(LineChart,{height:280,labels:years.map(String),series:[
+          {name:"Basis",color:BL,w:3,data:yearTotals},
+          {name:"Pessimistisch",color:RD,w:2,dash:"5,4",data:yearTotals.map(v=>Math.round(v*(1+sc.pess/100)))},
+          {name:"Optimistisch",color:GR,w:2,dash:"5,4",data:yearTotals.map(v=>Math.round(v*(1+sc.opt/100)))}
+        ]})
+      ),
+      ce("div",{className:"card"},
+        ce("table",null,
+          ce("thead",null,ce("tr",null,
+            ["Jahr","Basis","Pessimistisch","Δ Pess.","Optimistisch","Δ Opt."].map(h=>ce("th",{key:h,style:{textAlign:h==="Jahr"?"left":"right"}},h))
+          )),
+          ce("tbody",null,
+            years.map((y,i)=>{
+              const b=yearTotals[i],p=Math.round(b*(1+sc.pess/100)),o=Math.round(b*(1+sc.opt/100));
+              return ce("tr",{key:y},
+                ce("td",{style:{fontWeight:700,fontSize:15}},y),
+                ce("td",{style:{color:TX}},fmt(b)),
+                ce("td",{style:{color:RD}},fmt(p)),
+                ce("td",{style:{color:RD,fontSize:12}},fmt(p-b)),
+                ce("td",{style:{color:GR}},fmt(o)),
+                ce("td",{style:{color:GR,fontSize:12}},"+"+fmt(o-b))
+              );
+            }),
+            ce("tr",{style:{borderTop:"2px solid "+BD}},
+              ce("td",{style:{fontWeight:700,fontSize:14}},"Total"),
+              ce("td",{style:{fontWeight:700,color:TX}},fmt(tG)),
+              ce("td",{style:{fontWeight:700,color:RD}},fmt(yearTotals.reduce((s,v)=>s+Math.round(v*(1+sc.pess/100)),0))),
+              ce("td"),
+              ce("td",{style:{fontWeight:700,color:GR}},fmt(yearTotals.reduce((s,v)=>s+Math.round(v*(1+sc.opt/100)),0))),
+              ce("td")
+            )
+          )
+        )
+      )
+    )
+
+    ) // end content
+  ); // end App return
+}
+
+// ── Add Client Modal ──────────────────────────────────────────────────────────
+function AddClientModal({onAdd,onClose}){
+  const [name,setName]=useState("");
+  return ce("div",null,
+    ce("div",{style:{fontSize:18,fontWeight:700,marginBottom:4}},"Neuen Kunden hinzufügen"),
+    ce("div",{style:{fontSize:13,color:SB,marginBottom:20}},"Der Kunde wird mit allen aktuellen Produkten und Jahren angelegt."),
+    ce("input",{type:"text",value:name,onChange:e=>setName(e.target.value),placeholder:"Kundenname…",className:"inp",style:{fontSize:15,marginBottom:20},autoFocus:true,onKeyDown:e=>e.key==="Enter"&&name.trim()&&onAdd(name.trim())}),
+    ce("div",{style:{display:"flex",gap:8,justifyContent:"flex-end"}},
+      ce("button",{className:"btn-ghost",onClick:onClose},"Abbrechen"),
+      ce("button",{className:"btn-primary",onClick:()=>name.trim()&&onAdd(name.trim()),disabled:!name.trim()},"Hinzufügen")
+    )
+  );
+}
+
+// ── Add Product Modal ─────────────────────────────────────────────────────────
+function AddProductModal({onAdd,onClose}){
+  const [name,setName]=useState("");
+  const [type,setType]=useState("fix");
+  const [price,setPrice]=useState("");
+  const [note,setNote]=useState("");
+  return ce("div",null,
+    ce("div",{style:{fontSize:18,fontWeight:700,marginBottom:4}},"Neues Produkt / Dienstleistung"),
+    ce("div",{style:{fontSize:13,color:SB,marginBottom:20}},"Das Produkt wird für alle bestehenden Kunden und Jahre hinzugefügt."),
+    ce("div",{style:{display:"flex",flexDirection:"column",gap:14}},
+      ce("div",null,
+        ce("div",{style:{fontSize:11,color:SB,fontWeight:700,textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}},"Name"),
+        ce("input",{type:"text",value:name,onChange:e=>setName(e.target.value),placeholder:"z.B. Premium-Support, SLE-Lizenz…",className:"inp",autoFocus:true})
+      ),
+      ce("div",null,
+        ce("div",{style:{fontSize:11,color:SB,fontWeight:700,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}},"Preismodell"),
+        ce("div",{style:{display:"flex",gap:8}},
+          ce("button",{onClick:()=>setType("fix"),style:{flex:1,padding:"10px",borderRadius:12,border:"2px solid "+(type==="fix"?BL:BD),background:type==="fix"?"#f0f7ff":"#fff",color:type==="fix"?BL:SB,fontWeight:type==="fix"?600:400,cursor:"pointer"}},
+            ce("div",{style:{fontSize:14,marginBottom:3}},"Fix CHF"),
+            ce("div",{style:{fontSize:11}},"Preis × Menge")
+          ),
+          ce("button",{onClick:()=>setType("pct"),style:{flex:1,padding:"10px",borderRadius:12,border:"2px solid "+(type==="pct"?OR:BD),background:type==="pct"?"#fff8e7":"#fff",color:type==="pct"?OR:SB,fontWeight:type==="pct"?600:400,cursor:"pointer"}},
+            ce("div",{style:{fontSize:14,marginBottom:3}},"% Umsatz"),
+            ce("div",{style:{fontSize:11}},"TN × LM-Preis × %")
+          )
+        )
+      ),
+      ce("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}},
+        ce("div",null,
+          ce("div",{style:{fontSize:11,color:SB,fontWeight:700,textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}},type==="pct"?"Standard % Satz":"Standardpreis CHF"),
+          ce("input",{type:"number",min:0,value:price,onChange:e=>setPrice(e.target.value),placeholder:type==="pct"?"18":"150",className:"inp"})
+        ),
+        ce("div",null,
+          ce("div",{style:{fontSize:11,color:SB,fontWeight:700,textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}},"Beschreibung (optional)"),
+          ce("input",{type:"text",value:note,onChange:e=>setNote(e.target.value),placeholder:"z.B. pro TN, jährlich…",className:"inp"})
+        )
+      )
+    ),
+    ce("div",{style:{display:"flex",gap:8,justifyContent:"flex-end",marginTop:22}},
+      ce("button",{className:"btn-ghost",onClick:onClose},"Abbrechen"),
+      ce("button",{className:"btn-primary",onClick:()=>name.trim()&&onAdd(name.trim(),type,price||0,note),disabled:!name.trim()},"Produkt hinzufügen")
+    )
+  );
+}
+
+
+// ── History Modal ─────────────────────────────────────────────────────────────
+function HistoryModal({history,onRestore,onClose}){
+  return ce("div",null,
+    ce("div",{style:{fontSize:18,fontWeight:700,marginBottom:4}},"Gespeicherte Versionen"),
+    ce("div",{style:{fontSize:13,color:SB,marginBottom:18}},"Klick auf 'Wiederherstellen' setzt die App auf diesen Stand zurück. Aktuelle Daten werden überschrieben."),
+    ce("div",{style:{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}},
+      history.length===0
+        ?ce("div",{style:{color:SB,fontSize:13,padding:"20px",textAlign:"center"}},"Noch keine Versionen gespeichert.")
+        :history.map((snap,i)=>
+          ce("div",{key:i,style:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:i===0?"#f0f7ff":"#fafafe",borderRadius:12,border:"1px solid "+(i===0?"#b3d4f7":"#e8e8ed")}},
+            ce("div",{style:{flex:1}},
+              ce("div",{style:{fontSize:13,fontWeight:600,color:TX}},
+                i===0?"🔵 Aktuelle Version":"Version "+(i+1)
+              ),
+              ce("div",{style:{fontSize:12,color:SB,marginTop:2}},
+                new Date(snap.savedAt).toLocaleString("de-CH",{weekday:"short",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})
+              ),
+              ce("div",{style:{fontSize:11,color:SB,marginTop:1}},
+                (snap.clients||[]).length+" Kunden · "+(snap.years||[]).length+" Jahre · "+(snap.products||[]).length+" Produkte"
+              )
+            ),
+            i>0&&ce("button",{
+              onClick:()=>onRestore(snap),
+              style:{padding:"7px 14px",background:"#fff",border:"1.5px solid #0071e3",color:"#0071e3",borderRadius:16,fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}
+            },"↩ Wiederherstellen")
+          )
+        )
+    ),
+    ce("div",{style:{display:"flex",justifyContent:"flex-end",marginTop:16}},
+      ce("button",{className:"btn-ghost",onClick:onClose},"Schliessen")
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(ce(App));
+</script>
+</body>
+</html>
